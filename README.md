@@ -1,3 +1,102 @@
+# MesQueUnCode – Possession from Noisy Tracking
+
+A local solution for **More than a Hack 2027, Phase 1**. It combines geometric
+control evidence, automatic tactical hints, unsupervised movement regimes and a
+temporal state decoder. No human training labels, model downloads, external
+services or GPU are required.
+
+**Verified:** a complete CSV with 199,319 rows, official format validation,
+16 synthetic tests and byte-identical regeneration. One-time public pipeline
+check: spellF1 **0.4444**, macroF1 **0.7362**. The public window contains only
+17 possession spells; private full-match quality is unknown.
+See the [technical report](TECHNICAL_REPORT.md) for details and limitations.
+
+## Run the solution
+
+Tested with **CPython 3.12.14**. The original challenge dependencies are unchanged;
+the solution has a separate file with pinned versions.
+
+```bash
+python -m venv .venv
+# Windows:
+.venv\Scripts\python.exe -m pip install -r requirements-solution.txt
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+.venv\Scripts\python.exe -m possession --team MesQueUnCode --output-dir artifacts
+.venv\Scripts\python.exe evaluation/validate_submission.py artifacts/MesQueUnCode.csv
+```
+
+On Linux/macOS, the interpreter is `.venv/bin/python`. Place the tactical ATD XML,
+ATD text and Smart Tagging XML under `data/tactical/`, as described in
+[DATA.md](DATA.md). Alternatively, use `--data-dir PATH_TO_BUNDLE_ROOT` or set
+`MTAH_DATA_DIR`. Videos, broadcast files and homographies are not required.
+
+The output includes:
+
+- `artifacts/MesQueUnCode.csv`: possession labels to submit.
+- `artifacts/MesQueUnCode.md`: a copy of the technical report to submit.
+- `artifacts/MesQueUnCode.manifest.json`: input/code checksums, configuration,
+  package versions and the CSV checksum for local reproduction checks.
+
+`MesQueUnCode` is the provisional team name taken from the repository. Check it
+against the registered name before submission and use `--team REGISTERED_NAME`
+if needed. Filenames allow letters, digits, underscores and hyphens.
+
+## Reproduction and public pipeline check
+
+Runtime can be compared independently of prediction quality:
+
+```powershell
+.\.venv\Scripts\python.exe benchmark_runtime.py --runs 3
+```
+
+The test performs one warm-up and three measured runs per method, alternates
+their order and checks both generated CSVs. It compares complete calls to our
+solution and the original `baseline_smooth50` (`--window 50`), including process
+startup and file access. Our solution also validates output and creates a
+manifest. The median, minimum, maximum and individual timings are saved under
+`artifacts/runtime-benchmark/timings.json`. Avoid running other compute-intensive
+programs during the benchmark. It reads no ground truth and measures no
+prediction quality.
+
+After implementation optimisation on 26 October 2026, local medians were
+**5.62 s for the baseline** and **13.45 s for our solution** over three measured
+runs. Our solution still takes about 2.39 times as long; previously it took
+26.74 s, or 5.49 times as long. Machine load varies, so inspect the individual
+timings as well. The optimised output remains byte-identical.
+
+```bash
+python -m possession --team MesQueUnCode --output-dir artifacts/reproduction
+python -c "from pathlib import Path; assert Path('artifacts/MesQueUnCode.csv').read_bytes() == Path('artifacts/reproduction/MesQueUnCode.csv').read_bytes(); print('Byte-identical')"
+```
+
+Optional official scorer invocation for a method that has already been fixed:
+
+```bash
+python evaluation/run_evaluation.py --gt public --results artifacts --out artifacts/public-check --bootstrap 1000 --no-detail
+```
+
+The public window is exclusively for checking the pipeline, **not** for training
+or selecting parameters/method variants. The solution itself reads no GT.
+The recorded method decision and final requirements audit are in
+[WORKLOG.md](WORKLOG.md).
+
+## Submission and data protection
+
+According to [SUBMISSION.md](SUBMISSION.md), submit a CSV, a public repository URL
+and a short technical document by **17 November 2026**, using the form supplied
+by email. No time of day is specified. A Google account and registration are
+required; see [RULES.md](RULES.md) for team rules. No presentation or deployment
+is required for this phase.
+
+`data/`, `artifacts/`, `.cache/` and `.venv/` are excluded from Git. Match data and
+reconstructable intermediate records must not be published or sent to hosted
+LLMs. Submit the CSV only through the designated submission channel. The local
+implementation publishes or sends nothing.
+
+## Official challenge starter
+
+The original instructions below describe the supplied tools.
+
 # More than a Hack 2027 — Phase 1: Ball Possession
 
 **Organised by [Metrica Sports](https://metrica-sports.com), [FC Barcelona](https://www.fcbarcelona.com)
