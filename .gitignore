@@ -26,6 +26,15 @@ evaluation/results/*.csv
 evaluation/reports/
 evaluation/scoreboard.csv
 
+# -- team solution outputs ----------------------------------------------------------------------
+# Keep our submissions and generated evaluation artifacts separate from the reference outputs.
+# Use solution/README.md for the commands that score this directory.
+solution/results/*.csv
+solution/reports/
+solution/scoreboard.csv
+!solution/results/README.md
+!solution/reports/README.md
+
 # -- gated data --------------------------------------------------------------------------------
 # data/ is committed empty, with only its README, so the folder participants are told to unpack
 # into actually exists in a fresh clone. Everything they put in it stays out of git.
