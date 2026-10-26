@@ -240,3 +240,13 @@ with one measured run, no warm-up and no bootstrap; scoring and both report type
 completed successfully. This was a functional check, not a new runtime benchmark
 series. Existing head-to-head runtime records were preserved. No inference code,
 model parameters, match labels or official scoring code were changed.
+
+## Team algorithm guide on 26 October 2026
+
+Added `ALGORITHM_GUIDE.md` and linked it from the README. The English guide explains
+the baseline, input features, evidence equations, movement fitting, temporal
+decoding, official metrics, measured limitations and a rule-compliant development
+plan. It distinguishes implementation facts, measurements, hypotheses and proposals.
+Its two executable teaching examples use entirely synthetic inputs; their output
+was checked against the documented values. All 49 internal links and the README
+link were checked. Inference and evaluator code remain unchanged.

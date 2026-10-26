@@ -10,6 +10,8 @@ services or GPU are required.
 check: spellF1 **0.4444**, macroF1 **0.7362**. The public window contains only
 17 possession spells; private full-match quality is unknown.
 See the [technical report](TECHNICAL_REPORT.md) for details and limitations.
+For a step-by-step team explanation of the algorithm, scoring, measured weaknesses
+and development options, read the [algorithm guide](ALGORITHM_GUIDE.md).
 
 ## Run the solution
 
