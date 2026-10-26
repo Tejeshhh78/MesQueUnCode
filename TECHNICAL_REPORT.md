@@ -37,9 +37,11 @@ the supplied tracking. The faster component supplies movement evidence and is
 not output as a learned ground-truth class. This is not calibration against
 possession labels. Synthetic scenarios are used only for software tests.
 
-The public ground truth was used once, after the method had been fixed, with the
-official scorer to check the pipeline. It was neither passed to inference nor
-used for training, parameter selection or comparison of candidate methods.
+The initial public pipeline check was performed with the official scorer after
+the method had been fixed. A subsequent head-to-head diagnostic regenerated and
+scored the same fixed solution alongside the preselected `baseline_smooth50`.
+Ground truth was never passed to inference or used for training, parameter
+selection or selecting among candidate methods.
 
 The videos are absent locally. Broadcast tracking and homographies were reviewed
 for suitability but were not included in inference: broadcast uses a separate,
@@ -146,7 +148,7 @@ pinned versions were already installed locally and were confirmed with
   `benchmark_runtime.py` includes startup, reading and writing; our pipeline also
   validates output and creates a manifest. This runtime comparison uses no GT.
 
-One-time public pipeline check on 7,500 frames / 17 possession spells:
+Initial public pipeline check on 7,500 frames / 17 possession spells:
 
 | Metric | Result | 5th–95th bootstrap percentile, 1,000 draws |
 |---|---:|---:|

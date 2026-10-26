@@ -6,7 +6,7 @@ temporal state decoder. No human training labels, model downloads, external
 services or GPU are required.
 
 **Verified:** a complete CSV with 199,319 rows, official format validation,
-16 synthetic tests and byte-identical regeneration. One-time public pipeline
+16 synthetic tests and byte-identical regeneration. Initial public pipeline
 check: spellF1 **0.4444**, macroF1 **0.7362**. The public window contains only
 17 possession spells; private full-match quality is unknown.
 See the [technical report](TECHNICAL_REPORT.md) for details and limitations.
@@ -42,6 +42,44 @@ against the registered name before submission and use `--team REGISTERED_NAME`
 if needed. Filenames allow letters, digits, underscores and hyphens.
 
 ## Reproduction and public pipeline check
+
+For a direct comparison of the fixed original `baseline_smooth50` and our current
+algorithm on the same match, run:
+
+```powershell
+.\.venv\Scripts\python.exe compare_algorithms.py --runs 3 --bootstrap 1000
+```
+
+This regenerates both CSVs, measures full-match runtime, and evaluates exactly
+those two outputs with the unchanged official scorer on the public five-minute
+window. The new method additionally uses automatic Smart Tagging. A comparison
+table, bootstrap intervals and scope limitations are saved to
+`artifacts/head-to-head/comparison.md` and `comparison.json`; all outputs stay local.
+The comparison performs no training, parameter tuning or method selection.
+
+For **possession detection quality**, the same run also creates
+`artifacts/head-to-head/possession_quality.md` and `possession_quality.json`.
+These show correctly matched phases, missed phases, unmatched predictions,
+precision, recall and F1 for each official temporal overlap threshold.
+To re-score the saved predictions without another runtime benchmark:
+
+```powershell
+.\.venv\Scripts\python.exe compare_algorithms.py --quality-only --bootstrap 1000
+```
+
+This requires a previous complete comparison in the selected `--output-dir`.
+It verifies both CSV checksums against the recorded run and invokes the official
+scorer again. It does not regenerate predictions from any subsequent code edits;
+run the complete comparison to evaluate changed code.
+
+On the fixed public five-minute check, the old/new official spellF1 values are
+**0.3256 / 0.4444**. At IoU >= 0.5, both methods match **7 of 17** reference
+possessions. Unmatched predictions decrease from **19 to 3**, raising precision
+from **26.92% to 70.00%**, while recall remains **41.18%**. F1 at this single
+threshold is **0.3256 / 0.5185**, distinct from the averaged ranking metric.
+The improvement at this threshold is fewer unmatched predictions, not more
+recovered phases. These small-sample results do not establish private full-match
+superiority and must not be used to tune the method.
 
 Runtime can be compared independently of prediction quality:
 

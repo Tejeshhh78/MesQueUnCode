@@ -175,3 +175,68 @@ Translated all added documentation, comments, docstrings, CLI messages and local
 helper scripts into English. Renamed the report to `TECHNICAL_REPORT.md` and
 updated references and generated report copies. Inference parameters and
 possession-label semantics are unchanged.
+
+## Fixed head-to-head diagnostic on 26 October 2026
+
+At the user's request, `compare_algorithms.py --runs 3 --bootstrap 1000`
+regenerated both the preselected original `baseline_smooth50` and the unchanged
+current solution. It reused the runtime benchmark (one warm-up and three measured
+runs each, sequential execution, alternating order), then evaluated exactly those
+two CSVs with the unchanged official public scorer. Input checksums were identical
+before and after the test; every output passed official validation and was stable
+across repeated runs. Both methods use the same match and tactical tracking; our
+method also uses the supplied automatic Smart Tagging.
+
+| Metric | Original baseline | Current solution |
+|---|---:|---:|
+| Complete-match median CLI runtime | 6.51 s | 12.76 s |
+| Public spellF1 | 0.3256 | 0.4444 |
+| Public macroF1 | 0.6207 | 0.7362 |
+| Public frame accuracy | 0.7132 | 0.7557 |
+| Public dead-ball F1 | 0.3225 | 0.6652 |
+| Public dead-ball recall | 0.2138 | 0.5221 |
+| Public predicted possession count; reference 17 | 26 | 10 |
+
+Runtime covers all 199,319 frames; quality covers only the 7,500 public frames.
+The runtime ratio in this series is 1.96. The official spellF1 bootstrap intervals
+(5th–95th percentiles, 1,000 draws) are 0.2140–0.4465 for the baseline and
+0.2370–0.6519 for our method. They overlap substantially and are not a paired
+significance test. The higher public point estimate does not establish private
+full-match superiority. The solution still predicts too few possession intervals
+in this window, while the baseline predicts too many. No model parameters or
+method choices were changed using this diagnostic.
+
+Aggregate comparison reports are local at `artifacts/head-to-head/comparison.md`
+and `comparison.json`; the official scoreboard and reports are in the adjacent
+`evaluation/` directory. The original outputs remain out of Git. All new code and
+documentation are in English.
+
+## Possession quality comparison on 26 October 2026
+
+Extended `compare_algorithms.py` with a dedicated possession-quality table and
+local `possession_quality.md` / `possession_quality.json` reports. They separate
+the official mean spellF1 from F1 at a single IoU threshold and expose matched,
+missed and unmatched phases, precision, recall and all official IoU thresholds.
+`--quality-only` verifies saved CSV checksums against the recorded runtime run,
+then invokes the unchanged official public scorer without inference or timing.
+Reports explicitly identify reused versus freshly generated predictions.
+
+At IoU >= 0.5, each method matches 7 of 17 reference phases and misses 10.
+The new method has 3 unmatched predictions versus the baseline's 19: precision
+is 70.00% versus 26.92%, with recall unchanged at 41.18%. F1 at this threshold
+is 0.5185 versus 0.3256; the official mean across thresholds is 0.4444 versus
+0.3256. Equal match counts do not imply that the same reference phases matched.
+The gain at this threshold is precision, not additional recovered phases.
+At the looser IoU thresholds 0.3 and 0.4, the baseline recalls more phases;
+at the stricter thresholds 0.6 and 0.7, the new method matches one more phase.
+Only the public five-minute window is scored; private performance remains unknown.
+
+Verification: the quality-only command completed with 1,000 bootstrap draws.
+The generated JSON exactly preserves the official results and prediction hashes.
+CLI checks confirmed rejection of missing run provenance, missing predictions,
+altered predictions and additional CSV submissions before scoring. A complete
+integration run in `artifacts/head-to-head-smoke` regenerated both predictions
+with one measured run, no warm-up and no bootstrap; scoring and both report types
+completed successfully. This was a functional check, not a new runtime benchmark
+series. Existing head-to-head runtime records were preserved. No inference code,
+model parameters, match labels or official scoring code were changed.
