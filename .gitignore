@@ -14,26 +14,17 @@
 *_possession_gt_reference.csv
 possession_by_frame.pkl
 
-# -- submissions -------------------------------------------------------------------------------
-# Any file in results/ is a set of labels for the whole match. A perfect one is a copy of the
-# ground truth, so the folder ships empty and stays that way.
+# -- generated evaluation outputs ---------------------------------------------------------------
+# Comparison submissions and reports are generated locally and should not be committed.
 evaluation/results/*.csv
-
-# ...with one deliberate exception. The baselines are computed from the ATD alone -- the same ATD
-# every enrolled participant has -- and never read a ground truth of any kind, so they carry no
-# information about the answer. They ship so that a fresh clone has something real to score.
-!evaluation/results/baseline_*.csv
 evaluation/reports/
 evaluation/scoreboard.csv
 
 # -- team solution outputs ----------------------------------------------------------------------
-# Keep our submissions and generated evaluation artifacts separate from the reference outputs.
-# Use solution/README.md for the commands that score this directory.
+# Keep team submissions and generated evaluation artifacts local.
 solution/results/*.csv
 solution/reports/
 solution/scoreboard.csv
-!solution/results/README.md
-!solution/reports/README.md
 
 # -- gated data --------------------------------------------------------------------------------
 # data/ is committed empty, with only its README, so the folder participants are told to unpack
