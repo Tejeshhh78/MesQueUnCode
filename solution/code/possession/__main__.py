@@ -1,4 +1,4 @@
-"""Usage: python -m possession --team MesQueUnCode --output-dir artifacts"""
+"""Usage: python -m solution.code.possession --team MesQueUnCode"""
 
 import argparse
 from collections import Counter
@@ -21,7 +21,8 @@ from .data import read_events, read_tracking
 from .model import Config, predict
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
+SOLUTION_ROOT = ROOT / "solution"
 
 
 def sha256(path):
@@ -71,7 +72,8 @@ def run(data_dir, output_dir, team):
     codes = pm.label_codes(labels)
     runs = pm.valid_runs(codes)
     spells = pm.possession_spells(codes, runs)
-    source_paths = sorted((ROOT / "possession").glob("*.py")) + [ROOT / "games.py", ROOT / "requirements-solution.txt"]
+    source_paths = sorted(Path(__file__).resolve().parent.glob("*.py")) + [
+        ROOT / "games.py", SOLUTION_ROOT / "requirements.txt"]
     manifest = {
         "version": __version__, "team": team, "game": GAME,
         "environment": {"python": platform.python_version(), "numpy": np.__version__, "pandas": pd.__version__},
@@ -85,7 +87,7 @@ def run(data_dir, output_dir, team):
     with (output_dir / f"{team}.manifest.json").open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(manifest, handle, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False)
         handle.write("\n")
-    document = ROOT / "TECHNICAL_REPORT.md"
+    document = SOLUTION_ROOT / "TECHNICAL_REPORT.md"
     if document.is_file():
         shutil.copyfile(document, output_dir / f"{team}.md")
     print(f"OK: {len(labels):,} rows; {len(spells)} predicted possession spells")
@@ -97,7 +99,7 @@ def run(data_dir, output_dir, team):
 def main():
     parser = argparse.ArgumentParser(description="Local possession inference without human training labels")
     parser.add_argument("--data-dir", help="Data bundle root; default: data/ or MTAH_DATA_DIR")
-    parser.add_argument("--output-dir", default=str(ROOT / "artifacts"))
+    parser.add_argument("--output-dir", default=str(SOLUTION_ROOT / "results"))
     parser.add_argument("--team", default="MesQueUnCode", help="Registered team name to use as the filename")
     args = parser.parse_args()
     try:

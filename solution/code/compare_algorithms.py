@@ -8,11 +8,14 @@ import shutil
 import subprocess
 import sys
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from games import GAME, GAMES, require
-from possession.__main__ import sha256
+from solution.code.possession.__main__ import sha256
 
-
-ROOT = Path(__file__).resolve().parent
+SOLUTION_ROOT = ROOT / "solution"
 BASELINE = "baseline_smooth50"
 SOLUTION = "MesQueUnCode"
 
@@ -191,7 +194,7 @@ def write_summary(output, timings, baseline, solution, inputs, bootstrap):
         "The small public window cannot establish superiority on the private full match.",
         "Separate bootstrap intervals are not a paired significance test of the difference.",
         "A possession count closer to the reference is not itself proof of better segmentation.",
-        "Raw match assets remain local. The default output location is under the ignored `artifacts/` directory;",
+        "Raw match assets remain local. The default output location is under the ignored `solution/reports/` directory;",
         "a custom `--output-dir` may need its own Git exclusion.",
         "The unchanged official scorer's full results are in `evaluation/scoreboard.csv` and `evaluation/reports/`.",
         "",
@@ -214,7 +217,7 @@ def main():
     parser.add_argument("--quality-only", action="store_true",
                         help="Re-score existing, checksum-verified head-to-head CSVs; skip inference and runtime runs")
     parser.add_argument("--data-dir", type=Path, help="Alternative data bundle root for both methods")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "artifacts" / "head-to-head")
+    parser.add_argument("--output-dir", type=Path, default=SOLUTION_ROOT / "reports" / "head-to-head")
     args = parser.parse_args()
     if args.runs < 1 or args.warmup < 0 or args.bootstrap < 0:
         parser.error("--runs must be positive; --warmup and --bootstrap must be non-negative")
@@ -243,7 +246,7 @@ def main():
     paths = require(["atd_meta", "atd_raw", "smart_tagging"],
                     data_dir=str(args.data_dir.resolve()) if args.data_dir else None)
     inputs = {Path(path).name: sha256(path) for path in paths}
-    benchmark = [sys.executable, str(ROOT / "benchmark_runtime.py"), "--runs", str(args.runs),
+    benchmark = [sys.executable, "-m", "solution.code.benchmark_runtime", "--runs", str(args.runs),
                  "--warmup", str(args.warmup), "--output-dir", str(output / "runtime")]
     if args.data_dir:
         benchmark.extend(["--data-dir", str(args.data_dir.resolve())])

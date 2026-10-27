@@ -1,9 +1,12 @@
 # Progress and decisions
 
+Paths and commands recorded before 27 October 2026 refer to the original layout.
+See [README.md](README.md) for current commands under `solution/`.
+
 ## Authoritative requirements
 
 - Task: H/A/D/X for every tactical video frame, exactly 199,319 rows
-  ([CHALLENGE.md](CHALLENGE.md), [SUBMISSION.md](SUBMISSION.md)).
+  ([CHALLENGE.md](../docs/CHALLENGE.md), [SUBMISSION.md](../docs/SUBMISSION.md)).
 - Ranking: spellF1; first tie-break macroF1; additional tie-breaks are defined in
   `evaluation/run_evaluation.py:165`. No subjective judging in Phase 1.
 - Submission: team name, CSV, public repository and a short Markdown/PDF report;
@@ -250,3 +253,35 @@ plan. It distinguishes implementation facts, measurements, hypotheses and propos
 Its two executable teaching examples use entirely synthetic inputs; their output
 was checked against the documented values. All 49 internal links and the README
 link were checked. Inference and evaluator code remain unchanged.
+
+## Integrate the shared layout on 27 October 2026
+
+Fetched `origin` and merged `origin/testing` at `3fefcc1` into the local `dev_VG`
+branch. No remote branch was pushed. The shared layout places official challenge
+documents in `docs/` and our implementation in lowercase `solution/code/`.
+
+Moved the possession package, comparison tools, synthetic tests, pinned solution
+dependencies and team documentation under `solution/`. Updated imports, executable
+entry points, source checksums, report copying and documented commands. Default
+submissions now go to `solution/results/`; comparisons and timing reports go to
+`solution/reports/`. Both generated directories are excluded from Git. Existing
+local `artifacts/` outputs remain available. The team branch removes committed
+baseline CSVs; the comparison still regenerates its baseline from the shared data.
+
+Verification completed:
+
+- All 16 synthetic tests passed from `solution/tests/`.
+- Default inference wrote and validated 199,319 rows under `solution/results/`.
+- The CSV SHA-256 remained
+  `3ce21a4bf873fcfe7a04013408537d230e8a32d361ea18ec430d6e12c77bd43e`.
+- Manifest source paths and the copied technical report match their new locations.
+- A full comparison with one run, no warm-up and no bootstrap completed from the
+  new module entry point. This was an integration check, not a benchmark series.
+- The direct-script `--quality-only --bootstrap 1000` path also completed;
+  spellF1 remains 0.3256 for the baseline and 0.4444 for the unchanged solution.
+- Direct comparison/timing entry points import successfully outside the repository
+  root, and the guide's relocated synthetic examples match their expected output.
+- All 114 checked documentation link targets exist, and generated output files
+  remain ignored by Git.
+
+The model, inference parameters and official scoring code were not changed.

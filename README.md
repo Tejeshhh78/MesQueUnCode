@@ -1,137 +1,22 @@
-# MesQueUnCode – Possession from Noisy Tracking
+# MesQueUnCode
 
-A local solution for **More than a Hack 2027, Phase 1**. It combines geometric
-control evidence, automatic tactical hints, unsupervised movement regimes and a
-temporal state decoder. No human training labels, model downloads, external
-services or GPU are required.
+Our implementation is in **[solution/](solution/README.md)**, following the shared
+team layout. The official challenge documentation is in **[docs/](docs/README.md)**.
 
-**Verified:** a complete CSV with 199,319 rows, official format validation,
-16 synthetic tests and byte-identical regeneration. Initial public pipeline
-check: spellF1 **0.4444**, macroF1 **0.7362**. The public window contains only
-17 possession spells; private full-match quality is unknown.
-See the [technical report](TECHNICAL_REPORT.md) for details and limitations.
-For a step-by-step team explanation of the algorithm, scoring, measured weaknesses
-and development options, read the [algorithm guide](ALGORITHM_GUIDE.md).
+- [Run, test and compare our solution](solution/README.md)
+- [Detailed algorithm guide](solution/ALGORITHM_GUIDE.md)
+- [Technical report](solution/TECHNICAL_REPORT.md)
+- [Development and verification history](solution/WORKLOG.md)
 
-## Run the solution
-
-Tested with **CPython 3.12.14**. The original challenge dependencies are unchanged;
-the solution has a separate file with pinned versions.
-
-```bash
-python -m venv .venv
-# Windows:
-.venv\Scripts\python.exe -m pip install -r requirements-solution.txt
-.venv\Scripts\python.exe -m unittest discover -s tests -v
-.venv\Scripts\python.exe -m possession --team MesQueUnCode --output-dir artifacts
-.venv\Scripts\python.exe evaluation/validate_submission.py artifacts/MesQueUnCode.csv
-```
-
-On Linux/macOS, the interpreter is `.venv/bin/python`. Place the tactical ATD XML,
-ATD text and Smart Tagging XML under `data/tactical/`, as described in
-[DATA.md](DATA.md). Alternatively, use `--data-dir PATH_TO_BUNDLE_ROOT` or set
-`MTAH_DATA_DIR`. Videos, broadcast files and homographies are not required.
-
-The output includes:
-
-- `artifacts/MesQueUnCode.csv`: possession labels to submit.
-- `artifacts/MesQueUnCode.md`: a copy of the technical report to submit.
-- `artifacts/MesQueUnCode.manifest.json`: input/code checksums, configuration,
-  package versions and the CSV checksum for local reproduction checks.
-
-`MesQueUnCode` is the provisional team name taken from the repository. Check it
-against the registered name before submission and use `--team REGISTERED_NAME`
-if needed. Filenames allow letters, digits, underscores and hyphens.
-
-## Reproduction and public pipeline check
-
-For a direct comparison of the fixed original `baseline_smooth50` and our current
-algorithm on the same match, run:
+From the repository root, using the solution environment:
 
 ```powershell
-.\.venv\Scripts\python.exe compare_algorithms.py --runs 3 --bootstrap 1000
+.\.venv\Scripts\python.exe -m solution.code.possession --team MesQueUnCode
+.\.venv\Scripts\python.exe -m solution.code.compare_algorithms --runs 3 --bootstrap 1000
 ```
 
-This regenerates both CSVs, measures full-match runtime, and evaluates exactly
-those two outputs with the unchanged official scorer on the public five-minute
-window. The new method additionally uses automatic Smart Tagging. A comparison
-table, bootstrap intervals and scope limitations are saved to
-`artifacts/head-to-head/comparison.md` and `comparison.json`; all outputs stay local.
-The comparison performs no training, parameter tuning or method selection.
-
-For **possession detection quality**, the same run also creates
-`artifacts/head-to-head/possession_quality.md` and `possession_quality.json`.
-These show correctly matched phases, missed phases, unmatched predictions,
-precision, recall and F1 for each official temporal overlap threshold.
-To re-score the saved predictions without another runtime benchmark:
-
-```powershell
-.\.venv\Scripts\python.exe compare_algorithms.py --quality-only --bootstrap 1000
-```
-
-This requires a previous complete comparison in the selected `--output-dir`.
-It verifies both CSV checksums against the recorded run and invokes the official
-scorer again. It does not regenerate predictions from any subsequent code edits;
-run the complete comparison to evaluate changed code.
-
-On the fixed public five-minute check, the old/new official spellF1 values are
-**0.3256 / 0.4444**. At IoU >= 0.5, both methods match **7 of 17** reference
-possessions. Unmatched predictions decrease from **19 to 3**, raising precision
-from **26.92% to 70.00%**, while recall remains **41.18%**. F1 at this single
-threshold is **0.3256 / 0.5185**, distinct from the averaged ranking metric.
-The improvement at this threshold is fewer unmatched predictions, not more
-recovered phases. These small-sample results do not establish private full-match
-superiority and must not be used to tune the method.
-
-Runtime can be compared independently of prediction quality:
-
-```powershell
-.\.venv\Scripts\python.exe benchmark_runtime.py --runs 3
-```
-
-The test performs one warm-up and three measured runs per method, alternates
-their order and checks both generated CSVs. It compares complete calls to our
-solution and the original `baseline_smooth50` (`--window 50`), including process
-startup and file access. Our solution also validates output and creates a
-manifest. The median, minimum, maximum and individual timings are saved under
-`artifacts/runtime-benchmark/timings.json`. Avoid running other compute-intensive
-programs during the benchmark. It reads no ground truth and measures no
-prediction quality.
-
-After implementation optimisation on 26 October 2026, local medians were
-**5.62 s for the baseline** and **13.45 s for our solution** over three measured
-runs. Our solution still takes about 2.39 times as long; previously it took
-26.74 s, or 5.49 times as long. Machine load varies, so inspect the individual
-timings as well. The optimised output remains byte-identical.
-
-```bash
-python -m possession --team MesQueUnCode --output-dir artifacts/reproduction
-python -c "from pathlib import Path; assert Path('artifacts/MesQueUnCode.csv').read_bytes() == Path('artifacts/reproduction/MesQueUnCode.csv').read_bytes(); print('Byte-identical')"
-```
-
-Optional official scorer invocation for a method that has already been fixed:
-
-```bash
-python evaluation/run_evaluation.py --gt public --results artifacts --out artifacts/public-check --bootstrap 1000 --no-detail
-```
-
-The public window is exclusively for checking the pipeline, **not** for training
-or selecting parameters/method variants. The solution itself reads no GT.
-The recorded method decision and final requirements audit are in
-[WORKLOG.md](WORKLOG.md).
-
-## Submission and data protection
-
-According to [SUBMISSION.md](SUBMISSION.md), submit a CSV, a public repository URL
-and a short technical document by **17 November 2026**, using the form supplied
-by email. No time of day is specified. A Google account and registration are
-required; see [RULES.md](RULES.md) for team rules. No presentation or deployment
-is required for this phase.
-
-`data/`, `artifacts/`, `.cache/` and `.venv/` are excluded from Git. Match data and
-reconstructable intermediate records must not be published or sent to hosted
-LLMs. Submit the CSV only through the designated submission channel. The local
-implementation publishes or sends nothing.
+The solution defaults to `solution/results/`; comparisons go to
+`solution/reports/head-to-head/`. Generated outputs are excluded from Git.
 
 ## Official challenge starter
 
@@ -186,22 +71,24 @@ switches, and the ball itself is invisible on 41% of the frames you are scored o
 
 It is deliberately **not** a tracking challenge. The tracking, tagging and homography are given to
 you so that nobody has to rebuild detection, re-identification and camera calibration before
-getting to the actual question. See [CHALLENGE.md](CHALLENGE.md).
+getting to the actual question. See [CHALLENGE.md](docs/CHALLENGE.md).
 
 ---
 
 ## Try it right now
 
-The scorer, a 5-minute ground truth and four working baselines are in this repository. No
-enrolment, no download, no data:
+The scorer, the public 5-minute ground truth and the baseline implementation are
+included. This team branch keeps generated baseline CSVs out of Git. After placing
+the enrolled participant's tactical tracking under `data/`, generate them locally:
 
 ```bash
 pip install -r requirements.txt
+python starter/baseline.py
 python evaluation/run_evaluation.py
 ```
 
-Scored on the public 5 minutes, not on the full match -- which is why the order below is not the
-order of the floor quoted above:
+The published example below covers the public 5 minutes, not the full match,
+which is why its order differs from the published full-match baseline:
 
 ```
 scoreboard  gt/BAR-ATH_possession_gt_public.csv  199319 frames  7500 graded  21 gt segments
@@ -218,12 +105,11 @@ rank  submission                macroF1  spellF1   poss     dur
 Those four are **the same algorithm four times** — nearest tracked player to the ball, then a
 majority vote over a window. Only the window changes. `macroF1` barely moves; `spellF1` moves by a
 factor of eleven. That disagreement is the whole point of the metric, and
-[EVALUATION.md](EVALUATION.md) explains it.
+[EVALUATION.md](docs/EVALUATION.md) explains it.
 
-Once you have the data, regenerate them yourself and go further:
+Validate a generated submission before submitting it:
 
 ```bash
-python starter/baseline.py                              # rebuild the four baselines
 python evaluation/validate_submission.py <your>.csv     # before every submission
 ```
 
@@ -242,7 +128,7 @@ The match assets are released to enrolled participants who have accepted the ter
 3. You receive a download link.
 4. Unpack it into `./data`, or point `MTAH_DATA_DIR` at wherever you put it.
 
-Full description of every asset and how the frames line up: **[DATA.md](DATA.md)**.
+Full description of every asset and how the frames line up: **[DATA.md](docs/DATA.md)**.
 
 ---
 
@@ -250,13 +136,13 @@ Full description of every asset and how the frames line up: **[DATA.md](DATA.md)
 
 | | |
 |---|---|
-| **[CHALLENGE.md](CHALLENGE.md)** | the problem, the four labels, what counts as possession |
-| **[DATA.md](DATA.md)** | every provided asset, its format, and the frame alignment |
-| **[EVALUATION.md](EVALUATION.md)** | how you are scored, and why — read before optimising anything |
-| **[SUBMISSION.md](SUBMISSION.md)** | the file contract, the three deliverables, how to submit |
-| **[RULES.md](RULES.md)** | what you may and may not do |
-| **[FAQ.md](FAQ.md)** | |
-| **[OVERVIEW.md](OVERVIEW.md)** | the competition as a whole — context, why the 2027 format changed, the calendar |
+| **[CHALLENGE.md](docs/CHALLENGE.md)** | the problem, the four labels, what counts as possession |
+| **[DATA.md](docs/DATA.md)** | every provided asset, its format, and the frame alignment |
+| **[EVALUATION.md](docs/EVALUATION.md)** | how you are scored, and why — read before optimising anything |
+| **[SUBMISSION.md](docs/SUBMISSION.md)** | the file contract, the three deliverables, how to submit |
+| **[RULES.md](docs/RULES.md)** | what you may and may not do |
+| **[FAQ.md](docs/FAQ.md)** | |
+| **[OVERVIEW.md](docs/OVERVIEW.md)** | the competition as a whole — context, why the 2027 format changed, the calendar |
 
 
 ---
@@ -270,7 +156,7 @@ evaluation/
   run_evaluation.py         the scorer. This exact file produces the official result
   validate_submission.py    check a file before you send it
   gt/                       the public 5-minute ground truth
-  results/                  the four baselines; put your submissions here
+  results/                  locally generated baseline CSVs; see results/README.md
 starter/
   baseline.py               the reference baseline, numpy only
   load_atd.py               read the tracking and line it up with video frames
@@ -285,6 +171,24 @@ data/                       unpack the downloaded match assets here. Empty in a 
 
 The scorer you run locally is the scorer that decides the competition. If it scores on your
 machine, it scores the same way on ours.
+
+## Workspace layout for comparing our solution
+
+The provided implementation and the reference outputs stay in their original locations so that
+the supplied commands continue to work:
+
+| Area | Contents |
+|---|---|
+| `starter/` | Provided loader code, notebooks, and the reference baseline |
+| `evaluation/` | Official scorer, public ground truth, locally generated baseline submissions and reference reports |
+| `data/` | Downloaded match data used by both implementations |
+| `solution/code/` | Our implementation |
+| `solution/results/` | Our submission CSV files |
+| `solution/reports/` | Reports generated from our submissions |
+
+Use the solution-specific commands in [solution/README.md](solution/README.md) to score our work
+without overwriting the reference scoreboard. This arrangement deliberately adds a comparison
+area rather than moving `starter/` or `evaluation/`, because the supplied scripts use those paths.
 
 ---
 

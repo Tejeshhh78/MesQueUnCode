@@ -8,9 +8,9 @@ import unittest
 import numpy as np
 
 from evaluation import possession_metrics as pm
-from possession.__main__ import write_submission
-from possession.data import Features, read_events, read_tracking
-from possession.model import (Config, activity_evidence, decode, fill_short_gaps,
+from solution.code.possession.__main__ import write_submission
+from solution.code.possession.data import Features, read_events, read_tracking
+from solution.code.possession.model import (Config, activity_evidence, decode, fill_short_gaps,
                               predict, rolling_mean, tagging_evidence, team_side)
 
 

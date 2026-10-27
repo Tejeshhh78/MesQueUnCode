@@ -144,8 +144,8 @@ intervals.)
 
 ### Where do I put my submissions?
 
-`evaluation/results/`. Anything ending in `.csv` there is scored. The folder is gitignored apart
-from the four committed baselines, so your own files stay out of commits.
+`evaluation/results/`. Anything ending in `.csv` there is scored. The folder is gitignored, so
+generated baselines and your own files stay out of commits.
 
 ### Something here is wrong or unclear.
 

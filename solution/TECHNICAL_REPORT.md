@@ -90,9 +90,9 @@ empirically optimised against the public ground truth.
 
 ## Architecture, complexity and reproduction
 
-`possession/data.py` streams the ATD once and retains ball/team features rather
-than full player trajectories. `possession/model.py` computes evidence, fits the
-movement mixture and decodes states. `possession/__main__.py` writes UTF-8 with
+`solution/code/possession/data.py` streams the ATD once and retains ball/team features rather
+than full player trajectories. `solution/code/possession/model.py` computes evidence, fits the
+movement mixture and decodes states. `solution/code/possession/__main__.py` writes UTF-8 with
 LF line endings, validates before atomic replacement, and creates a manifest
 containing SHA-256 checksums of the inputs, code and output. Inference requires
 neither ground truth nor network access.
@@ -106,13 +106,13 @@ is used.
 
 Runtime is linear in frames × track slots; the decoder is linear in frames for a
 fixed number of states. Tested with CPython 3.12.14 and the packages pinned in
-`requirements-solution.txt`. From the repository root:
+`solution/requirements.txt`. From the repository root:
 
 ```bash
-python -m pip install -r requirements-solution.txt
-python -m unittest discover -s tests -v
-python -m possession --team MesQueUnCode --output-dir artifacts
-python evaluation/validate_submission.py artifacts/MesQueUnCode.csv
+python -m pip install -r solution/requirements.txt
+python -m unittest discover -s solution/tests -v
+python -m solution.code.possession --team MesQueUnCode --output-dir solution/results
+python evaluation/validate_submission.py solution/results/MesQueUnCode.csv
 ```
 
 Place the data under `data/` using the official layout, or specify
@@ -145,7 +145,7 @@ pinned versions were already installed locally and were confirmed with
   `baseline_smooth50`, each over three measured runs after a warm-up. Our pipeline
   still takes 2.39 times as long. Before optimisation, the first measurement
   series gave 26.74 s versus 4.88 s; machine load and individual timings vary.
-  `benchmark_runtime.py` includes startup, reading and writing; our pipeline also
+  `solution/code/benchmark_runtime.py` includes startup, reading and writing; our pipeline also
   validates output and creates a manifest. This runtime comparison uses no GT.
 
 Initial public pipeline check on 7,500 frames / 17 possession spells:

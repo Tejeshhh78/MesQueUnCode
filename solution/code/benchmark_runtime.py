@@ -11,11 +11,14 @@ import subprocess
 import sys
 import time
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from evaluation import possession_metrics as pm
 from games import GAME, GAMES
 
-
-ROOT = Path(__file__).resolve().parent
+SOLUTION_ROOT = ROOT / "solution"
 
 
 def main():
@@ -23,7 +26,7 @@ def main():
     parser.add_argument("--runs", type=int, default=3, help="Measured runs per method (default: 3)")
     parser.add_argument("--warmup", type=int, default=1, help="Unmeasured warm-up runs per method")
     parser.add_argument("--data-dir", type=Path, help="Alternative data bundle root for both methods")
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "artifacts" / "runtime-benchmark")
+    parser.add_argument("--output-dir", type=Path, default=SOLUTION_ROOT / "reports" / "runtime-benchmark")
     args = parser.parse_args()
     if args.runs < 1 or args.warmup < 0:
         parser.error("--runs must be positive and --warmup must be at least 0")
@@ -36,7 +39,7 @@ def main():
     commands = {
         "baseline_smooth50": [sys.executable, str(ROOT / "starter" / "baseline.py"),
                               "--window", "50", "--out", str(output / "baseline")],
-        "possession": [sys.executable, "-m", "possession", "--team", "MesQueUnCode",
+        "possession": [sys.executable, "-m", "solution.code.possession", "--team", "MesQueUnCode",
                        "--output-dir", str(output / "solution")],
     }
     files = {"baseline_smooth50": output / "baseline" / "baseline_smooth50.csv",

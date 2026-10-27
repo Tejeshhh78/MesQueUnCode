@@ -1,9 +1,11 @@
 # Understanding our possession algorithm
 
-Team learning and development guide · 26 October 2026
+Team learning and development guide · Updated 27 October 2026
 
-This guide explains the implementation at commit `b5eac8b`, the official scoring
-code, and the fixed comparison recorded in `artifacts/head-to-head/`. It is a
+This guide explains the algorithm at commit `b5eac8b` (unchanged by the
+27 October move into `solution/code/`), the official scoring
+code, and the fixed comparison originally recorded in `artifacts/head-to-head/`.
+New comparison runs default to `solution/reports/head-to-head/`. It is a
 longer companion to the submission-oriented [technical report](TECHNICAL_REPORT.md).
 Local generated reports are ignored by Git; their aggregate findings are included
 below so this explanation remains useful in a fresh clone.
@@ -77,8 +79,8 @@ The reference labels come from corrected tracking: dead-ball status supplies
 smoothed. Our physical intuition is useful for building a model, but it does not
 replace that reference definition.
 
-Sources: [possession rules](CHALLENGE.md#possession-rules),
-[`possession_spells`](evaluation/possession_metrics.py#L464).
+Sources: [possession rules](../docs/CHALLENGE.md#possession-rules),
+[`possession_spells`](../evaluation/possession_metrics.py#L464).
 
 ## 2. From input files to evaluated output
 
@@ -116,7 +118,7 @@ their team membership and collective information rather than assuming that
 "Track 12" is the same person throughout the game.
 
 The supplied ball track is absent on about 41% of the officially graded full-match
-frames, according to [DATA.md](DATA.md). Missingness is therefore a core part of
+frames, according to [DATA.md](../docs/DATA.md). Missingness is therefore a core part of
 the problem, not an exceptional input error.
 
 ## 3. How the original baseline works
@@ -142,13 +144,13 @@ the same smoothing window affects both noisy touches and genuine short phases.
 Both the baseline and our method use future observations. This baseline's
 centred vote is already an offline operation.
 
-Source: [`nearest_player_labels` and `smooth`](starter/baseline.py#L109).
+Source: [`nearest_player_labels` and `smooth`](../starter/baseline.py#L109).
 
 ## 4. How our algorithm builds evidence
 
 ### 4.1 Read, align and validate the observations
 
-[`read_tracking`](possession/data.py#L99) streams the ATD in blocks of up to 4,096
+[`read_tracking`](code/possession/data.py#L99) streams the ATD in blocks of up to 4,096
 lines. This is a memory and parsing optimisation; changing the block size must not
 change the features or predictions.
 
@@ -190,8 +192,8 @@ Ball speed is estimated from positions on either side of a frame. Values above
 45 m/s are discarded as unreliable. Several movement signals are averaged in
 centred windows, mostly around one second. All such windows stay within a half.
 
-Sources: [`fill_short_gaps`](possession/model.py#L46),
-[`emissions`](possession/model.py#L164).
+Sources: [`fill_short_gaps`](code/possession/model.py#L46),
+[`emissions`](code/possession/model.py#L164).
 
 ### 4.3 Estimate which team is geometrically favoured
 
@@ -220,7 +222,7 @@ passes nearby. Both team distances must be available; otherwise geometry is neut
 **Limitation:** proximity and speed do not establish contact or control. Ball
 height, a player's body orientation and actual foot/head contact are not observed.
 
-Source: [`emissions`, geometry calculation](possession/model.py#L193).
+Source: [`emissions`, geometry calculation](code/possession/model.py#L193).
 
 ### 4.4 Add automatic tactical evidence
 
@@ -246,7 +248,7 @@ Tags can bridge ball occlusions. Incorrect long tags can also favour an incorrec
 team for many consecutive frames. The multiplier 1.25 is a fixed modelling
 assumption, not a value established as optimal by the public evaluation.
 
-Source: [`tagging_evidence`](possession/model.py#L113).
+Source: [`tagging_evidence`](code/possession/model.py#L113).
 
 ### 4.5 Estimate whether the ball is in play
 
@@ -299,9 +301,9 @@ goalkeeper holding the ball, a slow live build-up, or running players after a
 stoppage are plausible failure scenarios. These examples are not claims about
 specific frames in the supplied match.
 
-Sources: [`activity_evidence`](possession/model.py#L60),
-[`tagging_evidence`](possession/model.py#L113),
-[`alive_score` implementation](possession/model.py#L207).
+Sources: [`activity_evidence`](code/possession/model.py#L60),
+[`tagging_evidence`](code/possession/model.py#L113),
+[`alive_score` implementation](code/possession/model.py#L207).
 
 ### 4.6 Convert evidence to three scores
 
@@ -325,7 +327,7 @@ They support comparisons and temporal optimisation. They cannot be reported as
 "70% confidence that H owns the ball". Normalising them would not establish
 empirical calibration either.
 
-Source: [`emissions`, final scores](possession/model.py#L210).
+Source: [`emissions`, final scores](code/possession/model.py#L210).
 
 ## 5. How the temporal decoder decides
 
@@ -361,8 +363,8 @@ we do not observe the surrounding part of that run.
 Half boundaries reset decoding. Outside the published halves the output is `X`.
 Inside them the current model always selects `H`, `A` or `D`; it does not abstain.
 
-Sources: [`Config`](possession/model.py#L16), [`decode`](possession/model.py#L219),
-[`predict`](possession/model.py#L283).
+Sources: [`Config`](code/possession/model.py#L16), [`decode`](code/possession/model.py#L219),
+[`predict`](code/possession/model.py#L283).
 
 ### 5.2 Why this can suppress both false touches and true short phases
 
@@ -397,7 +399,7 @@ The parser scales approximately with frames times track slots. For fixed state
 and age counts, decoding scales linearly with frames. Compact predecessor storage
 uses three bytes per frame, in addition to feature arrays and working storage.
 
-`benchmark_runtime.py` measures whole CLI calls: startup, reading, computation and
+`solution/code/benchmark_runtime.py` measures whole CLI calls: startup, reading, computation and
 output. Our CLI additionally validates the CSV, hashes inputs/code/output and
 writes a manifest. That benchmark does not isolate the decoder's cost, so it cannot
 identify the main runtime bottleneck without profiling.
@@ -466,7 +468,7 @@ It is an average of five F1 values, not a frame accuracy or a single-threshold F
 Overfragmentation creates unmatched predictions; overmerging loses reference
 phases and can damage IoU. Merely predicting the right total number is insufficient.
 
-Source: [`spell_scores` and matching helpers](evaluation/possession_metrics.py#L472).
+Source: [`spell_scores` and matching helpers](../evaluation/possession_metrics.py#L472).
 
 ### 6.3 Why almost perfect frame accuracy can still give poor phases
 
@@ -517,9 +519,9 @@ one X segment. These measures diagnose different behaviours; none replaces the
 ranking metric. `frag` includes stoppages, so it is not simply the ratio of
 possession counts.
 
-Sources: [`rank_key`](evaluation/run_evaluation.py#L165),
-[`transition_scores`](evaluation/possession_metrics.py#L381),
-[`fragmentation`](evaluation/possession_metrics.py#L446).
+Sources: [`rank_key`](../evaluation/run_evaluation.py#L165),
+[`transition_scores`](../evaluation/possession_metrics.py#L381),
+[`fragmentation`](../evaluation/possession_metrics.py#L446).
 
 ### 6.5 How X is handled
 
@@ -535,7 +537,7 @@ Filling and segmentation never cross reference gaps such as halftime.
 Our current inference emits `X` only outside the published half boundaries.
 Adding internal abstention would not automatically improve quality.
 
-Source: [`fill_abstentions`](evaluation/possession_metrics.py#L274).
+Source: [`fill_abstentions`](../evaluation/possession_metrics.py#L274).
 
 ## 7. What our measured results mean
 
@@ -609,8 +611,8 @@ Also avoid comparing our public 0.4444 with the published **private full-match**
 baseline score of 0.2433. Those scores cover different data. The comparable public
 baseline score is 0.3256.
 
-Sources: locally generated `artifacts/head-to-head/possession_quality.json` and
-`evaluation/reports/` within that directory; [official evaluation guidance](EVALUATION.md).
+Sources: locally generated `solution/reports/head-to-head/possession_quality.json` and
+`evaluation/reports/` within that directory; [official evaluation guidance](../docs/EVALUATION.md).
 
 ## 8. What is established and what remains uncertain
 
@@ -661,8 +663,8 @@ into a special rule for a particular timestamp is not a general algorithmic fix.
 The fixed comparison in this guide is a diagnostic of unchanged methods. It is
 not permission to repeatedly select variants against the public reference.
 
-Sources: [RULES.md](RULES.md#training-and-validation-data),
-[public-window guidance](EVALUATION.md#the-public-window-is-not-a-leaderboard).
+Sources: [RULES.md](../docs/RULES.md#training-and-validation-data),
+[public-window guidance](../docs/EVALUATION.md#the-public-window-is-not-a-leaderboard).
 
 ### 9.2 Prioritise observable mechanisms
 
@@ -697,16 +699,16 @@ From the repository root, with the documented environment and required assets:
 
 ```powershell
 # Synthetic correctness tests; no competition labels required.
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s solution/tests -v
 
 # Generate the current algorithm's predictions.
-.\.venv\Scripts\python.exe -m possession --team MesQueUnCode --output-dir artifacts
+.\.venv\Scripts\python.exe -m solution.code.possession --team MesQueUnCode --output-dir solution/results
 
 # Regenerate both fixed methods, measure runtime and evaluate their quality.
-.\.venv\Scripts\python.exe compare_algorithms.py --runs 3 --bootstrap 1000
+.\.venv\Scripts\python.exe -m solution.code.compare_algorithms --runs 3 --bootstrap 1000
 
 # Re-score saved comparison predictions after verifying their recorded checksums.
-.\.venv\Scripts\python.exe compare_algorithms.py --quality-only --bootstrap 1000
+.\.venv\Scripts\python.exe -m solution.code.compare_algorithms --quality-only --bootstrap 1000
 ```
 
 The quality-only command needs a previous complete comparison. It does not
@@ -715,33 +717,33 @@ command. Evaluation is diagnostic, subject to the public-label restrictions abov
 
 Outputs of the comparison include:
 
-- `artifacts/head-to-head/possession_quality.md`: readable phase-quality analysis.
-- `artifacts/head-to-head/possession_quality.json`: exact metrics and CSV checksums.
-- `artifacts/head-to-head/comparison.md`: combined quality/runtime comparison.
-- `artifacts/head-to-head/runtime/timings.json`: individual timings and medians.
-- `artifacts/head-to-head/evaluation/reports/`: unchanged official aggregate reports.
+- `solution/reports/head-to-head/possession_quality.md`: readable phase-quality analysis.
+- `solution/reports/head-to-head/possession_quality.json`: exact metrics and CSV checksums.
+- `solution/reports/head-to-head/comparison.md`: combined quality/runtime comparison.
+- `solution/reports/head-to-head/runtime/timings.json`: individual timings and medians.
+- `solution/reports/head-to-head/evaluation/reports/`: unchanged official aggregate reports.
 
 Default generated artifacts and restricted match data are ignored by Git. Custom
 output locations may require their own exclusion. Do not publish match trajectories,
 frame-level extracts or other reconstructable restricted data.
-The [LLM rule in the FAQ](FAQ.md#L109) also prohibits sending competition data,
+The [LLM rule in the FAQ](../docs/FAQ.md#L109) also prohibits sending competition data,
 videos, confidential content or their extracts to third-party hosted/cloud LLMs.
 Keep analysis of those assets local; this is a separate restriction from public
 redistribution.
 
 | Read this file | To understand |
 |---|---|
-| [CHALLENGE.md](CHALLENGE.md) | The football definition and expected output |
-| [DATA.md](DATA.md) | Input formats, missingness and timelines |
-| [possession/data.py](possession/data.py) | Loading, validation and compact features |
-| [possession/model.py](possession/model.py) | Evidence, movement fitting and temporal decoding |
-| [possession/__main__.py](possession/__main__.py) | Inference orchestration, CSV and manifest |
-| [starter/baseline.py](starter/baseline.py) | Original nearest-player and smoothing method |
-| [evaluation/possession_metrics.py](evaluation/possession_metrics.py) | Exact metric definitions |
-| [evaluation/run_evaluation.py](evaluation/run_evaluation.py) | Scoring workflow and ranking order |
-| [compare_algorithms.py](compare_algorithms.py) | Fixed head-to-head test and reports |
+| [CHALLENGE.md](../docs/CHALLENGE.md) | The football definition and expected output |
+| [DATA.md](../docs/DATA.md) | Input formats, missingness and timelines |
+| [possession/data.py](code/possession/data.py) | Loading, validation and compact features |
+| [possession/model.py](code/possession/model.py) | Evidence, movement fitting and temporal decoding |
+| [possession/__main__.py](code/possession/__main__.py) | Inference orchestration, CSV and manifest |
+| [starter/baseline.py](../starter/baseline.py) | Original nearest-player and smoothing method |
+| [evaluation/possession_metrics.py](../evaluation/possession_metrics.py) | Exact metric definitions |
+| [evaluation/run_evaluation.py](../evaluation/run_evaluation.py) | Scoring workflow and ranking order |
+| [compare_algorithms.py](code/compare_algorithms.py) | Fixed head-to-head test and reports |
 | [tests/test_possession.py](tests/test_possession.py) | Existing synthetic correctness checks |
-| [RULES.md](RULES.md) | Allowed data, labels and development constraints |
+| [RULES.md](../docs/RULES.md) | Allowed data, labels and development constraints |
 
 ### Reproduce the two teaching examples
 
@@ -753,7 +755,7 @@ environment, for example as a temporary script or in a Python console.
 import numpy as np
 
 from evaluation import possession_metrics as pm
-from possession.model import decode
+from solution.code.possession.model import decode
 
 cost = np.full((3, 3), 24.0)
 cost[0, 1] = cost[1, 0] = 20.0
