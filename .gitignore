@@ -62,3 +62,7 @@ __pycache__/
 venv/
 env/
 .DS_Store
+
+# Local solution artifacts: never publish match-derived intermediate data.
+artifacts/
+.cache/
