@@ -147,6 +147,24 @@ data/                       unpack the downloaded match assets here. Empty in a 
 The scorer you run locally is the scorer that decides the competition. If it scores on your
 machine, it scores the same way on ours.
 
+## Workspace layout for comparing our solution
+
+The provided implementation and the reference outputs stay in their original locations so that
+the supplied commands continue to work:
+
+| Area | Contents |
+|---|---|
+| `starter/` | Provided loader code, notebooks, and the reference baseline |
+| `evaluation/` | Official scorer, public ground truth, committed baseline submissions, and reference reports |
+| `data/` | Downloaded match data used by both implementations |
+| `solution/code/` | Our implementation |
+| `solution/results/` | Our submission CSV files |
+| `solution/reports/` | Reports generated from our submissions |
+
+Use the solution-specific commands in [solution/README.md](solution/README.md) to score our work
+without overwriting the reference scoreboard. This arrangement deliberately adds a comparison
+area rather than moving `starter/` or `evaluation/`, because the supplied scripts use those paths.
+
 ---
 
 ## Requirements
