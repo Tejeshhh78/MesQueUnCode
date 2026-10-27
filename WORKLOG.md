@@ -240,3 +240,54 @@ with one measured run, no warm-up and no bootstrap; scoring and both report type
 completed successfully. This was a functional check, not a new runtime benchmark
 series. Existing head-to-head runtime records were preserved. No inference code,
 model parameters, match labels or official scoring code were changed.
+
+## Other-match validation and profile v2 on 26 October 2026
+
+Problem addressed: every parameter in `Config` was fixed a priori, and the public
+window may not be used to choose between variants, so no legitimate quality signal
+existed. RULES.md allows labelled data from other games, so a validation harness
+was added in `validation/` using the three public Metrica Sports sample games
+(anonymised, tracking plus event data). Nothing of the provided match is read.
+
+- Labels: H/A/D derived mechanically from each game's events (owner = team of the
+  latest on-ball action; dead from ball-out, foul, offside or goal to the next
+  restart). Slivers under 6 frames are absorbed. Check against the official
+  lag table (perfect but 1/3/8/25 frames late): derived labels give 1.000 /
+  0.985 / 0.90–0.92 / 0.64–0.66 versus 1.0000 / 0.9818 / 0.8933 / 0.6539 for
+  the private full match, so the spell-length structure is comparable.
+- Tracking degradation towards the automatic ATD: ball missing on 35 % of live
+  frames (bursty, more often in crowds and for fast balls), AR(1) noise, player
+  dropouts to ~20.5 visible, spurious ball jumps, ball visible during part of
+  stoppages. Four regimes sweep these assumptions. Synthetic Smart-Tagging-like
+  phases with an explicit error model test the tag interaction.
+- Reference check: `baseline_smooth50` scores 0.23–0.27 spellF1 in the harness
+  (official full match: 0.2433); v1 scores 0.41–0.44 without tags.
+
+Findings with v1:
+
+- Lowering or raising switch costs alone does not help; 20/24 is the best
+  of the tested costs for the v1 evidence. Minimum duration 0.16 s vs 0.32 s
+  makes no difference.
+- Error budget with oracle evidence: perfect team evidence on frames with an
+  observed ball raises spellF1 from 0.43 to 0.76; perfect dead-ball evidence
+  only to 0.50. Team evidence is the bottleneck, not the decoder.
+- Empirical P(owner = closer team): 0.86–0.99 within 1 m, ~0.5 beyond 4 m. The
+  v1 geometry still gives sizeable evidence at 3–8 m, where it is uninformative.
+- Short spells (< 3.5 s, ~40 % of possessions) are almost never matched; every
+  miss also merges its neighbours. Predicted/true spell count is ~0.65.
+
+Profile v2 (control radius 1.5 m, distance margin 0.5 m, team switch cost 15,
+tag strength 0.6, switch placed in the middle of exactly tied ball gaps) was
+chosen for robustness across regimes, not as the single best grid point.
+Leave-one-game-out selection gave held-out gains of +0.070 / +0.047 / +0.046.
+`python -m validation` (3 games × 2 seeds × 4 regimes × 3 tag models): v2 beat
+v1 in all 72 paired comparisons, +0.008 to +0.081 spellF1. Rejected on the same
+evidence: stronger fast-ball gating, a ball/player speed-consistency gate and
+temporal smoothing of the geometry term (neutral or worse).
+
+The tie placement never changes the decoder objective (verified exhaustively
+in tests). v1 remains the default; its labels were checked identical to the
+previous code on 1.7 million harness frames with and without tags. Whether v2
+is better on the provided match is not established; its public-window score
+must not be used to decide. If v2 is submitted, the technical report must list
+the Metrica sample data as other-match validation data (see TECHNICAL_REPORT.md).

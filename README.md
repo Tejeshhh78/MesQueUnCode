@@ -6,7 +6,7 @@ temporal state decoder. No human training labels, model downloads, external
 services or GPU are required.
 
 **Verified:** a complete CSV with 199,319 rows, official format validation,
-16 synthetic tests and byte-identical regeneration. Initial public pipeline
+24 synthetic tests and byte-identical regeneration. Initial public pipeline
 check: spellF1 **0.4444**, macroF1 **0.7362**. The public window contains only
 17 possession spells; private full-match quality is unknown.
 See the [technical report](TECHNICAL_REPORT.md) for details and limitations.
@@ -117,6 +117,33 @@ The public window is exclusively for checking the pipeline, **not** for training
 or selecting parameters/method variants. The solution itself reads no GT.
 The recorded method decision and final requirements audit are in
 [WORKLOG.md](WORKLOG.md).
+
+## Validation on other matches (profile v2)
+
+RULES.md allows labelled data from other games. `validation/` scores the model on
+the three public [Metrica Sports sample games](https://github.com/metrica-sports/sample-data)
+(anonymised matches with tracking and event data, © Metrica Sports). Possession and
+dead-ball labels are derived mechanically from each game's own events; the clean
+tracking is degraded towards the automatic ATD (ball missing on 35–45 % of live
+frames, positional noise, dropouts). It reads nothing of the provided match.
+
+```powershell
+.\.venv\Scripts\python.exe -m validation --download     # once; files go to data/external/ (gitignored)
+.\.venv\Scripts\python.exe -m validation                # v1, v2 and baseline_smooth50; ~6 min
+.\.venv\Scripts\python.exe -m validation --quick        # one seed, one regime, no tags
+```
+
+Profile `v2` was selected there: control evidence within ~1.5 m of a player, team
+switch cost 15, tag weight 0.6 and switch placement in the middle of ball gaps.
+Across 3 games × 2 seeds × 4 tracking-degradation regimes × 3 synthetic tagging
+models it beat `v1` in all 72 paired comparisons (spellF1 +0.008 to +0.081, mean
++0.022 to +0.071 per setting). These are other matches with simulated tracking
+noise, so the gain on the provided match is not established. `v1` stays the
+default and is unchanged; generate `v2` with:
+
+```powershell
+.\.venv\Scripts\python.exe -m possession --profile v2 --team MesQueUnCode --output-dir artifacts/v2
+```
 
 ## Submission and data protection
 

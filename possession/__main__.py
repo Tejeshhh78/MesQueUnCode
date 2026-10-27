@@ -18,7 +18,7 @@ from games import GAME, GAMES, half_video_blocks, require
 from evaluation import possession_metrics as pm
 from . import __version__
 from .data import read_events, read_tracking
-from .model import Config, predict
+from .model import PROFILES, predict
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,11 +52,13 @@ def write_submission(path, labels):
         temporary.unlink(missing_ok=True)
 
 
-def run(data_dir, output_dir, team):
+def run(data_dir, output_dir, team, profile="v1"):
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", team):
         raise ValueError("Team name: 1–80 letters/digits, hyphens or underscores")
+    if profile not in PROFILES:
+        raise ValueError(f"Unknown profile {profile!r}; choose one of {sorted(PROFILES)}")
     started = time.perf_counter()
-    config = Config()
+    config = PROFILES[profile]
     game = GAMES[GAME]
     paths = require(["atd_meta", "atd_raw", "smart_tagging"], data_dir=data_dir)
     fingerprints = {Path(p).name: sha256(p) for p in paths}
@@ -73,7 +75,7 @@ def run(data_dir, output_dir, team):
     spells = pm.possession_spells(codes, runs)
     source_paths = sorted((ROOT / "possession").glob("*.py")) + [ROOT / "games.py", ROOT / "requirements-solution.txt"]
     manifest = {
-        "version": __version__, "team": team, "game": GAME,
+        "version": __version__, "team": team, "game": GAME, "profile": profile,
         "environment": {"python": platform.python_version(), "numpy": np.__version__, "pandas": pd.__version__},
         "config": config.to_dict(), "inputs_sha256": fingerprints,
         "code_sha256": {str(p.relative_to(ROOT)).replace("\\", "/"): sha256(p) for p in source_paths},
@@ -99,9 +101,12 @@ def main():
     parser.add_argument("--data-dir", help="Data bundle root; default: data/ or MTAH_DATA_DIR")
     parser.add_argument("--output-dir", default=str(ROOT / "artifacts"))
     parser.add_argument("--team", default="MesQueUnCode", help="Registered team name to use as the filename")
+    parser.add_argument("--profile", default="v1", choices=sorted(PROFILES),
+                        help="v1: method fixed before the public check (default); "
+                             "v2: recalibrated on other matches only, see validation/")
     args = parser.parse_args()
     try:
-        run(args.data_dir, args.output_dir, args.team)
+        run(args.data_dir, args.output_dir, args.team, args.profile)
     except (ValueError, OSError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1

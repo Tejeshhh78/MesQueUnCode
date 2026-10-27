@@ -10,8 +10,19 @@ import numpy as np
 from evaluation import possession_metrics as pm
 from possession.__main__ import write_submission
 from possession.data import Features, read_events, read_tracking
-from possession.model import (Config, activity_evidence, decode, fill_short_gaps,
-                              predict, rolling_mean, tagging_evidence, team_side)
+from possession.model import (PROFILES, Config, activity_evidence, decode, fill_short_gaps,
+                              place_tied_switches, predict, rolling_mean, tagging_evidence,
+                              team_side)
+
+
+def path_objective(scores, cost, path):
+    return (sum(scores[t, path[t]] for t in range(len(path)))
+            - sum(cost[path[t - 1], path[t]] for t in range(1, len(path))))
+
+
+def internal_durations_ok(path, minimum):
+    bounds = [0] + [i for i in range(1, len(path)) if path[i] != path[i - 1]] + [len(path)]
+    return all(b - a >= minimum for a, b in zip(bounds[1:-2], bounds[2:-1]))
 
 
 def synthetic_features(n=400):
@@ -180,6 +191,56 @@ class InferenceTests(unittest.TestCase):
         self.assertGreater(evidence[350], 0)
         self.assertEqual(evidence[-1], 0)
         np.testing.assert_array_equal(evidence, activity_evidence(speed, np.ones(501, dtype=bool), 25)[0])
+
+    def test_v1_profile_is_the_method_fixed_before_the_public_check(self):
+        # Guards the reproducibility of the verified submission: v1 must stay the original method.
+        self.assertEqual(PROFILES["v1"], Config())
+        self.assertEqual(Config().to_dict(), {
+            "control_radius_m": 6.0, "distance_margin_m": 2.5, "short_gap_s": 0.32,
+            "motion_window_s": 1.0, "min_state_s": 0.32, "team_switch_cost": 20.0,
+            "stoppage_switch_cost": 24.0, "tag_strength": 1.25, "tie_switch_placement": "first"})
+
+    def test_tied_switch_moves_to_middle_of_evidence_free_gap(self):
+        scores = np.full((150, 3), -5.)
+        scores[:50, 0] = 0
+        scores[50:90, :2] = -1      # ball gap: H and A exactly tied
+        scores[90:, 1] = 0
+        cost = np.full((3, 3), 20.)
+        np.fill_diagonal(cost, 0)
+        path = decode(scores, cost, 8)
+        self.assertEqual(int(np.flatnonzero(np.diff(path))[0]) + 1, 50)  # Viterbi: earliest
+        placed = place_tied_switches(path, scores, 8)
+        self.assertEqual(int(np.flatnonzero(np.diff(placed))[0]) + 1, 70)
+        self.assertEqual(path_objective(scores, cost, placed), path_objective(scores, cost, path))
+
+    def test_tied_switch_placement_keeps_exact_optimum_and_durations(self):
+        rng = np.random.default_rng(7)
+        cost = np.array([[0., 6., 9.], [6., 0., 9.], [9., 9., 0.]])
+        for trial in range(300):
+            minimum = int(rng.integers(1, 6))
+            scores = rng.normal(size=(int(rng.integers(20, 120)), 3)) * 2
+            for _ in range(int(rng.integers(1, 5))):
+                a = int(rng.integers(0, len(scores) - 1))
+                b = min(len(scores), a + int(rng.integers(1, 30)))
+                scores[a:b, 1] = scores[a:b, 0]
+            path = decode(scores, cost, minimum)
+            placed = place_tied_switches(path, scores, minimum)
+            with self.subTest(trial=trial):
+                self.assertAlmostEqual(path_objective(scores, cost, placed),
+                                       path_objective(scores, cost, path), places=9)
+                self.assertTrue(internal_durations_ok(placed, minimum))
+                changed = placed != path
+                self.assertTrue(np.all(scores[changed, 0] == scores[changed, 1]))
+                self.assertTrue(np.all((placed == 2) == (path == 2)))
+
+    def test_v2_profile_keeps_possession_through_long_ball_gap(self):
+        f = synthetic_features()
+        f.ball[100:250] = np.nan
+        f.distance[100:250] = np.nan
+        labels, _ = predict(f, [], [(1, 0, 399)], (105, 68), 25, PROFILES["v2"])
+        self.assertTrue(np.all(labels == "H"))
+        with self.assertRaises(ValueError):
+            predict(f, [], [(1, 0, 399)], (105, 68), 25, Config(tie_switch_placement="late"))
 
     def test_synthetic_labels_score_perfectly_and_format_is_deterministic(self):
         with tempfile.TemporaryDirectory() as folder:

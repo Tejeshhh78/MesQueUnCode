@@ -22,9 +22,24 @@ class Config:
     team_switch_cost: float = 20.0
     stoppage_switch_cost: float = 24.0
     tag_strength: float = 1.25
+    # "first": Viterbi's own tie-breaking (earliest frame). "middle": see place_tied_switches.
+    tie_switch_placement: str = "first"
 
     def to_dict(self):
         return asdict(self)
+
+
+# v1 is the method fixed before the public pipeline check; its output is unchanged.
+# v2 was selected on OTHER matches only (validation/, Metrica's public sample games with labels
+# derived from their own event data): control evidence concentrated within ~1.5 m of a player,
+# a correspondingly lower team switching cost, a tag weight that stays robust when tags are noisy,
+# and switch placement in the middle of evidence-free gaps. No data of the provided match was
+# used to choose it.
+PROFILES = {
+    "v1": Config(),
+    "v2": Config(control_radius_m=1.5, distance_margin_m=0.5, team_switch_cost=15.0,
+                 tag_strength=0.6, tie_switch_placement="middle"),
+}
 
 
 def rolling_mean(values, width):
@@ -280,14 +295,62 @@ def decode(scores, switch_cost, min_frames=1):
     return path
 
 
+def place_tied_switches(path, scores, min_frames=1):
+    """Move each H<->A switch to the middle of the exactly tied run around it.
+
+    Where the H and A scores are identical (no team evidence, typically a ball gap), every switch
+    position inside that run has the same objective value, so Viterbi's choice there is only its
+    tie-breaking rule, which picks the earliest frame. The middle of the run minimises the expected
+    boundary error under flat evidence. Only tied frames change label, the number of switches is
+    unchanged and internal states keep at least min_frames, so the result is still an exact optimum.
+    """
+    path = np.array(path, dtype=np.int8, copy=True)
+    scores = np.asarray(scores, dtype=np.float64)
+    n = len(path)
+    if n < 2:
+        return path
+    tied = scores[:, 0] == scores[:, 1]
+    breaks = (np.flatnonzero(path[1:] != path[:-1]) + 1).tolist()
+    stops = breaks + [n]
+    old_start = 0
+    for index, switch in enumerate(breaks):
+        new_stop = stops[index + 1]
+        old, new = int(path[switch - 1]), int(path[switch])
+        if old == 2 or new == 2:
+            old_start = switch
+            continue
+        low = switch
+        while low > old_start and tied[low - 1]:
+            low -= 1
+        high = switch
+        while high < new_stop and tied[high]:
+            high += 1
+        target = (low + high) // 2
+        # Internal states must keep the minimum duration; boundary states may be shorter.
+        if old_start > 0:
+            target = max(target, old_start + min_frames)
+        if new_stop < n:
+            target = min(target, new_stop - min_frames)
+        target = min(max(target, low), high)
+        path[min(target, switch):max(target, switch)] = old if target > switch else new
+        old_start = target
+    return path
+
+
 def predict(features, events, blocks, pitch, fps, config=Config()):
     scores, report = emissions(features, events, blocks, pitch, fps, config)
     labels = np.full(len(features.ball), "X", dtype="<U1")
     cost = np.full((3, 3), config.stoppage_switch_cost)
     cost[0, 1] = cost[1, 0] = config.team_switch_cost
     np.fill_diagonal(cost, 0)
+    if config.tie_switch_placement not in ("first", "middle"):
+        raise ValueError("tie_switch_placement must be 'first' or 'middle'")
     alphabet = np.array(["H", "A", "D"])
+    minimum = max(1, round(config.min_state_s * fps))
     for _, start, last in blocks:
-        labels[start:last + 1] = alphabet[decode(scores[start:last + 1], cost,
-                                                 max(1, round(config.min_state_s * fps)))]
+        block = scores[start:last + 1]
+        path = decode(block, cost, minimum)
+        if config.tie_switch_placement == "middle":
+            path = place_tied_switches(path, block, minimum)
+        labels[start:last + 1] = alphabet[path]
     return labels, report

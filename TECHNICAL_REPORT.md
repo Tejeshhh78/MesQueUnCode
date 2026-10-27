@@ -124,12 +124,15 @@ pinned versions were already installed locally and were confirmed with
 
 ## Actual verification and results
 
-- 16 synthetic tests passed: strict frame alignment and input validation,
+- 24 synthetic tests passed: strict frame alignment and input validation,
   team assignment in metres, tag timing, short/long ball gaps, deflections versus
   controlled changes, stoppages and restarts, half resets, correlated tags,
   deterministic movement fitting, and the CSV/metric contract. Additional checks
   cover identical features across block boundaries, rejection of partial numeric
-  tokens and deterministic decoder ties.
+  tokens and deterministic decoder ties, an unchanged v1 profile, objective-
+  preserving tie placement (300 randomised cases) and the validation harness
+  (event-derived labels, deterministic degradation, features identical to the
+  solution loader).
 - For small problems with minimum durations of 1, 2 and 3, the decoder was checked
   against every possible state path; the optimal objective value matches.
 - The official ±50 baseline was independently regenerated from local raw data;
@@ -158,6 +161,30 @@ Initial public pipeline check on 7,500 frames / 17 possession spells:
 These values are **not estimates of the private full-match score**. The wide
 interval prevents a reliable claim of superiority from this window. No model
 parameters were changed based on the score after this check.
+
+## Validation on other matches and profile v2
+
+To obtain a quality signal without touching the provided match, `validation/`
+uses the three public [Metrica Sports sample games](https://github.com/metrica-sports/sample-data)
+(anonymised matches, tracking and event data, © Metrica Sports; event data
+annotated by Metrica). H/A/D labels are derived mechanically from those events,
+and their clean tracking is degraded towards the automatic ATD (ball missing on
+35–45 % of live frames, noise, dropouts, spurious detections). Synthetic tags
+with explicit error rates test the Smart Tagging interaction. The derived labels
+reproduce the official lag-sensitivity table closely, and `baseline_smooth50`
+scores 0.23–0.27 there (0.2433 on the full match).
+
+This showed that the bottleneck is team evidence, not the decoder: the v1
+geometry still credits teams 3–8 m from the ball, where ownership is
+empirically a coin flip. Profile `v2` concentrates control evidence within
+~1.5 m (radius 1.5 m, margin 0.5 m), lowers the team switch cost to 15, uses tag
+strength 0.6 and places a team switch in the middle of an exactly tied ball gap
+(same objective value as Viterbi's earliest-frame tie-break). It beat v1 in all
+72 paired comparisons (3 games × 2 seeds × 4 degradation regimes × 3 tag
+models; spellF1 +0.008 to +0.081). These are other matches with simulated noise,
+so the gain on this match is not demonstrated. v1 is the default and unchanged;
+`--profile v2` selects the alternative. If v2 is submitted, the sample games
+are its only labelled data, used to select five parameters.
 
 ## Limitations and useful next steps
 
