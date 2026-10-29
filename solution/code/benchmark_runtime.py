@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
 
 from evaluation import possession_metrics as pm
 from games import GAME, GAMES
+from solution.code.possession.model import PROFILES, profile_config
 
 SOLUTION_ROOT = ROOT / "solution"
 
@@ -26,6 +27,8 @@ def main():
     parser.add_argument("--runs", type=int, default=3, help="Measured runs per method (default: 3)")
     parser.add_argument("--warmup", type=int, default=1, help="Unmeasured warm-up runs per method")
     parser.add_argument("--data-dir", type=Path, help="Alternative data bundle root for both methods")
+    parser.add_argument("--profile", choices=PROFILES, default="incumbent",
+                        help="Fixed solution profile to compare; responsive uses the independently selected cost 12")
     parser.add_argument("--output-dir", type=Path, default=SOLUTION_ROOT / "reports" / "runtime-benchmark")
     args = parser.parse_args()
     if args.runs < 1 or args.warmup < 0:
@@ -40,7 +43,7 @@ def main():
         "baseline_smooth50": [sys.executable, str(ROOT / "starter" / "baseline.py"),
                               "--window", "50", "--out", str(output / "baseline")],
         "possession": [sys.executable, "-m", "solution.code.possession", "--team", "MesQueUnCode",
-                       "--output-dir", str(output / "solution")],
+                       "--profile", args.profile, "--output-dir", str(output / "solution")],
     }
     files = {"baseline_smooth50": output / "baseline" / "baseline_smooth50.csv",
              "possession": output / "solution" / "MesQueUnCode.csv"}
@@ -48,6 +51,7 @@ def main():
     fingerprints = {}
     print("Complete CLI calls: process startup + reading + computation + output.", flush=True)
     print("The solution also validates output and creates a manifest; runs are sequential.", flush=True)
+    print(f"Solution profile: {args.profile}; team-switch cost: {profile_config(args.profile).team_switch_cost:g}", flush=True)
     for iteration in range(args.warmup + args.runs):
         order = list(commands)
         if iteration % 2:
@@ -77,6 +81,7 @@ def main():
                for name, values in durations.items()}
     factor = summary["possession"]["median_s"] / summary["baseline_smooth50"]["median_s"]
     report = {"python": platform.python_version(), "platform": platform.platform(),
+              "solution_profile": args.profile, "solution_config": profile_config(args.profile).to_dict(),
               "runs": args.runs, "warmup": args.warmup, "scope": "complete_cli_wall_time",
               "ground_truth_used": False, "results": summary,
               "solution_time_divided_by_baseline": factor}

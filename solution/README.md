@@ -28,6 +28,38 @@ candidate explicitly with:
 .\.venv\Scripts\python.exe -m solution.code.possession --profile responsive --team-switch-cost 12 --output-dir solution/reports/responsive-12
 ```
 
+Compare this **already selected** candidate with the original hackathon
+`baseline_smooth50`, including full CLI timing and the official public pipeline
+check:
+
+```powershell
+.\.venv\Scripts\python.exe -m solution.code.compare_algorithms --profile responsive --runs 3 --warmup 1 --bootstrap 1000 --output-dir solution/reports/head-to-head-responsive-2026-10-29
+```
+
+The report records the actual profile, configuration and prediction hashes.
+Without `--profile responsive`, comparison retains the original incumbent for
+backwards compatibility. Public results must not select or retune either
+profile. `--quality-only` requires the same profile as the saved run and does
+not rerun inference. Private full-match quality remains unknown.
+
+Executed on 29 October 2026, with three measured runs after one warm-up:
+
+| Metric | Original baseline | Responsive, cost 12 |
+|---|---:|---:|
+| Public spellF1 | 0.3256 | 0.4138 |
+| Public macroF1 | 0.6207 | 0.7278 |
+| Matched possessions at IoU 0.5 | 7/17 | 7/17 |
+| Unmatched predictions at IoU 0.5 | 19 | 5 |
+| Full CLI median runtime | 4.53 s | 10.69 s |
+
+The public spellF1 point estimate is 27.1% higher; runtime is 2.36 times as long.
+At IoU 0.5 the gain is precision, not additional recovered phases. These 7,500
+graded frames do not establish private full-match quality. The previously
+recorded incumbent public spellF1 was 0.4444; that difference does not alter the
+independent selection of cost 12 or trigger tuning on public labels.
+Detailed local reports are `comparison.md` and `possession_quality.md` under
+`solution/reports/head-to-head-responsive-2026-10-29/`.
+
 ## Run the solution
 
 Run all commands from the repository root, not from inside `solution/`.

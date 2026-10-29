@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 
 from games import GAME, GAMES, require
 from solution.code.possession.__main__ import sha256
+from solution.code.possession.model import PROFILES
 
 SOLUTION_ROOT = ROOT / "solution"
 BASELINE = "baseline_smooth50"
@@ -35,7 +36,7 @@ def score_predictions(output, bootstrap, environment):
     return metrics, hashes
 
 
-def write_quality_summary(output, metrics, hashes, *, reused_predictions=False):
+def write_quality_summary(output, metrics, hashes, *, reused_predictions=False, profile="incumbent", config=None):
     """Explain possession detection using the official aggregate matching results."""
     baseline, solution = metrics[BASELINE], metrics[SOLUTION]
     for key in ("ground_truth", "n_graded", "n_gt_spells", "spell_iou_headline", "bootstrap_n"):
@@ -63,6 +64,7 @@ def write_quality_summary(output, metrics, hashes, *, reused_predictions=False):
         "# Possession detection quality: old versus new", "",
         f"Old: `{BASELINE}`. New: `{SOLUTION}`. Both use the same match and tactical tracking;",
         "the new method also uses supplied automatic Smart Tagging.", "",
+        f"Solution profile: `{profile}`. Configuration: `{json.dumps(config, sort_keys=True)}`.", "",
         prediction_source, "",
         f"The unchanged official scorer evaluates {baseline['n_graded']:,} public frames",
         f"with **{baseline['n_gt_spells']} reference possessions**. Private full-match quality is unknown.", "",
@@ -117,6 +119,7 @@ def write_quality_summary(output, metrics, hashes, *, reused_predictions=False):
     ])
     (output / "possession_quality.md").write_text("\n".join(lines), encoding="utf-8")
     report = {"methods": {"baseline": BASELINE, "solution": SOLUTION},
+              "solution_profile": profile, "solution_config": config,
               "ground_truth": baseline["ground_truth"], "quality_frames": baseline["n_graded"],
               "reference_possessions": baseline["n_gt_spells"], "headline_iou": float(headline),
               "training_or_tuning": False, "prediction_source": prediction_source,
@@ -149,6 +152,8 @@ def write_summary(output, timings, baseline, solution, inputs, bootstrap):
     ]
     report = {
         "methods": {"baseline": BASELINE, "solution": SOLUTION},
+        "solution_profile": timings.get("solution_profile", "incumbent"),
+        "solution_config": timings.get("solution_config"),
         "scope": {"runtime_frames": GAMES[GAME]["n_video_frames"],
                   "quality_frames": baseline["n_graded"],
                   "quality_gt_possessions": baseline["n_gt_spells"],
@@ -167,6 +172,7 @@ def write_summary(output, timings, baseline, solution, inputs, bootstrap):
         "# Old-versus-new algorithm comparison", "",
         f"Old: `{BASELINE}`. New: `{SOLUTION}`. Both process the same match and tactical tracking.",
         "The new method additionally uses the supplied automatic Smart Tagging.", "",
+        f"Solution profile: `{report['solution_profile']}`. Configuration: `{json.dumps(report['solution_config'], sort_keys=True)}`.", "",
         f"Runtime covers all {report['scope']['runtime_frames']:,} frames. Quality is evaluated only on",
         f"the {baseline['n_graded']:,} public frames ({baseline['n_gt_spells']} reference possessions).",
         "Full CLI timing includes startup, reading and writing. The new method also validates its",
@@ -217,6 +223,8 @@ def main():
     parser.add_argument("--quality-only", action="store_true",
                         help="Re-score existing, checksum-verified head-to-head CSVs; skip inference and runtime runs")
     parser.add_argument("--data-dir", type=Path, help="Alternative data bundle root for both methods")
+    parser.add_argument("--profile", choices=PROFILES, default="incumbent",
+                        help="Fixed solution profile; public results must not select or tune this choice")
     parser.add_argument("--output-dir", type=Path, default=SOLUTION_ROOT / "reports" / "head-to-head")
     args = parser.parse_args()
     if args.runs < 1 or args.warmup < 0 or args.bootstrap < 0:
@@ -233,6 +241,8 @@ def main():
             parser.error("--data-dir cannot be combined with --quality-only, which uses saved predictions")
         try:
             timings = json.loads((output / "runtime" / "timings.json").read_text(encoding="utf-8"))
+            if timings.get("solution_profile", "incumbent") != args.profile:
+                parser.error("Saved predictions use a different profile; select their recorded --profile")
             for name, timing_key in ((BASELINE, BASELINE), (SOLUTION, "possession")):
                 if sha256(results / f"{name}.csv") != timings["results"][timing_key]["csv_sha256"]:
                     parser.error(f"{name}: saved predictions differ from the recorded run; rerun without --quality-only")
@@ -240,14 +250,16 @@ def main():
             parser.error(f"Cannot verify saved predictions: {exc}. Run without --quality-only first")
         print("Re-scoring the saved predictions; inference and runtime are not rerun.", flush=True)
         metrics, hashes = score_predictions(output, args.bootstrap, environment)
-        write_quality_summary(output, metrics, hashes, reused_predictions=True)
+        write_quality_summary(output, metrics, hashes, reused_predictions=True,
+                              profile=args.profile, config=timings.get("solution_config"))
         return
     results.mkdir(parents=True, exist_ok=True)
     paths = require(["atd_meta", "atd_raw", "smart_tagging"],
                     data_dir=str(args.data_dir.resolve()) if args.data_dir else None)
     inputs = {Path(path).name: sha256(path) for path in paths}
     benchmark = [sys.executable, "-m", "solution.code.benchmark_runtime", "--runs", str(args.runs),
-                 "--warmup", str(args.warmup), "--output-dir", str(output / "runtime")]
+                 "--warmup", str(args.warmup), "--profile", args.profile,
+                 "--output-dir", str(output / "runtime")]
     if args.data_dir:
         benchmark.extend(["--data-dir", str(args.data_dir.resolve())])
     print("Step 1/2: regenerate both predictions and measure full-match runtime.", flush=True)
@@ -260,7 +272,7 @@ def main():
     metrics, hashes = score_predictions(output, args.bootstrap, environment)
     timings = json.loads((output / "runtime" / "timings.json").read_text(encoding="utf-8"))
     write_summary(output, timings, metrics[BASELINE], metrics[SOLUTION], inputs, args.bootstrap)
-    write_quality_summary(output, metrics, hashes)
+    write_quality_summary(output, metrics, hashes, profile=args.profile, config=timings.get("solution_config"))
 
 
 if __name__ == "__main__":

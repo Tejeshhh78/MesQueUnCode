@@ -1,6 +1,6 @@
 # Independent quality development
 
-Updated 28 October 2026. The incumbent remains the default. The `reliable` and
+Updated 29 October 2026. The incumbent remains the default. The `reliable` and
 `responsive` profiles are explicit experiments; selection evidence is reported below.
 Competition public labels are excluded from this development workflow.
 
@@ -245,7 +245,7 @@ submission or score either method against the public competition window.
 Two full runs (explicit cost and matching profile default) generated the same
 199,319-row CSV, accepted by the official format validator. Candidate SHA-256:
 `368f50cd5d6d826b97c80e1d492dd474392429ed1430ce60ead243c62d1ebea2`.
-The incumbent's original CSV hash remains unchanged. All 90 tests pass; the
+The incumbent's original CSV hash remains unchanged. All 91 tests pass; the
 environment has no broken requirements and no new runtime dependency was added.
 
 ## Reproduce the pilot

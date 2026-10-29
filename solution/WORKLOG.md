@@ -396,3 +396,37 @@ games with inspectable control/stoppage labels, preferably from an observation
 domain closer to the supplied tracking. Do not use the public competition window
 as a substitute. The separate candidate is ready for review; publishing and
 submission remain unperformed.
+
+## Fixed candidate versus original baseline on 29 October 2026
+
+At the user's request, compared the independently selected responsive cost 12
+against the original `baseline_smooth50` on identical supplied tracking. Added
+explicit `--profile` forwarding to comparison/runtime tools and profile/config
+metadata in reports. A regression test rejects saved incumbent predictions
+being re-scored under the responsive name, before any scoring occurs.
+
+Executed one warm-up and three alternating measured full CLI runs per method,
+then one unchanged official public evaluation with 1,000 bootstrap draws.
+The candidate CSV hash remains the frozen `368f50cd...1ebea2`; no inference
+weights, variant choice or default changed in response to this check.
+
+- Mean public spellF1: baseline 0.3256, responsive 0.4138 (+27.1% relative).
+- MacroF1: 0.6207 -> 0.7278. At IoU 0.5 both recover 7/17 possessions; unmatched
+  predictions decrease from 19 to 5. Precision improves; recall is unchanged.
+- Median full CLI time: baseline 4.5314 s, responsive 10.6895 s (2.36 times as
+  long). Individual measured candidate times: 11.14, 10.58, 10.69 s.
+- SpellF1 5th–95th bootstrap ranges: baseline 0.2140–0.4465, candidate
+  0.2207–0.6076. These separate, overlapping intervals are not a paired test.
+- All 91 tests pass. Exact profile/configuration and frozen prediction hash
+  were verified in generated reports. Generated data and reports remain ignored.
+
+Only 7,500 public frames/17 phases are graded; full-match private quality is
+unknown. The incumbent's earlier public score of 0.4444 does not change the
+independent development/final-test decision. The public result is neither a new
+selection objective nor a rollback criterion.
+
+Reports: `solution/reports/head-to-head-responsive-2026-10-29/`, including
+`comparison.md`, `comparison.json`, `possession_quality.md` and runtime records.
+README and technical report distinguish original baseline, incumbent and
+selected responsive profile. Source/docs/tests are prepared for the separately
+requested push to `origin/dev_VG`; raw data and generated artifacts are excluded.

@@ -1,6 +1,6 @@
 # MesQueUnCode – Technical Report
 
-More than a Hack 2027, Phase 1 · Updated: 28 October 2026
+More than a Hack 2027, Phase 1 · Updated: 29 October 2026
 
 ## Objective and approach
 
@@ -199,7 +199,7 @@ Single-pass inference timings are too variable for a speedup claim.
 
 The `reliable` observation-filter experiment produced identical predictions to
 the incumbent on its independent development pilot and was not selected.
-All **90** current synthetic regression, adapter, diagnostics and protocol tests
+All **91** current synthetic regression, adapter, diagnostics and protocol tests
 pass. The selected configuration's final-game prediction hashes were reproduced
 after packaging, without opening reference labels or recomputing final metrics.
 The official evaluator and competition reference were not changed or used for
@@ -215,6 +215,15 @@ reference. To generate the independently supported candidate explicitly:
 
 The candidate is a separate artifact; improved competition quality is unverified.
 The final split is now consumed and must not be used for further tuning.
+
+On 29 October, a requested public pipeline check compared this already fixed
+candidate with the original `baseline_smooth50`: spellF1 0.4138 versus 0.3256,
+macroF1 0.7278 versus 0.6207. At IoU 0.5 both match 7/17 reference possessions,
+with 5 versus 19 unmatched predictions. Full CLI medians over three measured
+runs after one warm-up were 10.69 versus 4.53 seconds. The candidate prediction
+hash matches the independently selected, previously regenerated artifact.
+No choice, parameter or default was changed in response to this public check;
+these five-minute results do not establish private full-match superiority.
 
 ## Limitations and useful next steps
 
