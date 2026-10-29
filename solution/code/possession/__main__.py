@@ -63,8 +63,8 @@ def run(data_dir, output_dir, team, *, profile="incumbent", diagnostics=False, s
         raise ValueError("Saving a detailed trace requires diagnostics")
     config = profile_config(profile)
     if team_switch_cost is not None:
-        if profile != "responsive" or not np.isfinite(team_switch_cost) or team_switch_cost <= 0:
-            raise ValueError("A positive finite team-switch cost requires the responsive profile")
+        if profile not in ("responsive", "controlled") or not np.isfinite(team_switch_cost) or team_switch_cost <= 0:
+            raise ValueError("A positive finite team-switch cost requires the responsive or controlled profile")
         config = replace(config, team_switch_cost=float(team_switch_cost))
     output_dir = Path(output_dir)
     target = output_dir / f"{team}.csv"

@@ -11,6 +11,8 @@ import subprocess
 
 import numpy as np
 
+from evaluation import possession_metrics as pm
+
 
 ROOT = Path(__file__).resolve().parents[3]
 TRACE_FEATURES = (
@@ -19,6 +21,7 @@ TRACE_FEATURES = (
 )
 OPTIONAL_TRACE_FEATURES = ("ball_observed", "ball_rejected")
 LABELS = ("H", "A", "D", "X")
+DURATION_BINS_SECONDS = (0, 2, 5, 15, 1000000)
 
 
 def _prepare(trace, labels, blocks, fps):
@@ -176,6 +179,272 @@ def aggregate_diagnostics(trace, labels, blocks, fps):
         "disagreement_counts": {
             "opposing_geometry_and_tag_frames": int(conflicting.sum()),
             "chosen_live_team_opposes_team_evidence_frames": int(opposing_team.sum()),
+        },
+    }
+
+
+def _label_codes(values, n):
+    """Convert H/A/D/X strings or 0..3 integer codes to validated integer codes."""
+    array = np.asarray(values)
+    if array.shape != (n,):
+        raise ValueError("Reference labels must match the prediction length")
+    if np.issubdtype(array.dtype, np.integer):
+        if np.any((array < 0) | (array >= len(LABELS))):
+            raise ValueError("Integer reference codes must lie in 0..3")
+        return array.astype(np.int8)
+    if not np.isin(array, LABELS).all():
+        raise ValueError("Reference labels must contain only H, A, D or X")
+    return pm.label_codes(array)
+
+
+def _greedy_match_pairs(gt_spells, pred_spells, threshold):
+    """Return greedy one-to-one matched pairs (gt_index, pred_index, iou) at threshold."""
+    overlaps = pm.spell_overlaps(gt_spells, pred_spells)
+    matched_gt = set()
+    matched_pred = set()
+    pairs = []
+    for iou, gt_idx, pred_idx in overlaps:
+        if iou < threshold:
+            break
+        if gt_idx in matched_gt or pred_idx in matched_pred:
+            continue
+        matched_gt.add(gt_idx)
+        matched_pred.add(pred_idx)
+        pairs.append((gt_idx, pred_idx, float(iou)))
+    return pairs, matched_gt, matched_pred
+
+
+def _interval_prf(n_matched, n_pred, n_gt):
+    precision = n_matched / float(n_pred) if n_pred else 0.0
+    recall = n_matched / float(n_gt) if n_gt else 0.0
+    f1 = 2.0 * precision * recall / (precision + recall) if precision + recall else 0.0
+    return {
+        "n_gt": int(n_gt),
+        "n_pred": int(n_pred),
+        "n_matched": int(n_matched),
+        "n_spurious": int(n_pred - n_matched),
+        "n_missed": int(n_gt - n_matched),
+        "precision": float(precision),
+        "recall": float(recall),
+        "f1": float(f1),
+    }
+
+
+def _period_transition_summary(gt_trans_by_period, pred_trans_by_period, tol, fps):
+    """Aggregate official to-typed transition matching without crossing metadata periods."""
+    pairs, missed, spurious = [], [], []
+    ambiguous = 0
+    n_gt = 0
+    n_pred = 0
+    for gt_trans, pred_trans in zip(gt_trans_by_period, pred_trans_by_period):
+        n_gt += len(gt_trans)
+        n_pred += len(pred_trans)
+        period_scores = pm.transition_scores(gt_trans, pred_trans, tol, typed="to")
+        pairs.extend(period_scores["pairs"])
+        missed.extend(period_scores["missed"])
+        spurious.extend(period_scores["spurious"])
+        ambiguous += int(period_scores["n_ambiguous"])
+    summary = _interval_prf(len(pairs), n_pred, n_gt)
+    latencies = np.asarray([pred[0] - gt[0] for gt, pred in pairs], dtype=np.float64)
+    summary.update({
+        "n_ambiguous": int(ambiguous),
+        "latency_frames": _statistics(latencies),
+        "abs_latency_frames": _statistics(np.abs(latencies)),
+        "latency_s": _statistics(latencies / fps),
+    })
+    return summary
+
+
+def reference_diagnostics(reference, labels, trace, blocks, fps=25):
+    """Return aggregate reference-vs-prediction diagnostics without frame timelines.
+
+    Implements the predeclared Stage 2 diagnostic definitions:
+    - unchanged official greedy same-team IoU matching within native metadata
+      periods and known-reference runs;
+    - likely splits, likely merges, and wrong-team overlap counts;
+    - recall and failure counts by reference possession duration bins;
+    - missing-ball, suppressed-correct-geometry, and selected-wrong-geometry frame
+      counts (descriptive associations, not proof of decoder causality);
+    - signed start/end boundary errors on IoU-0.5 matched possessions;
+    - stoppage frame/interval counts and transition/restart errors at 12 frames.
+    """
+    arrays, pred_labels, ranges, covered, fps = _prepare(trace, labels, blocks, fps)
+    ref_codes = _label_codes(reference, len(pred_labels))
+    pred_codes = pm.label_codes(pred_labels)
+    if np.any(ref_codes[~covered] != pm.X):
+        raise ValueError("Reference labels outside declared period blocks must be X")
+
+    period_runs = []
+    runs = []
+    for first, stop in ranges:
+        sub_runs = [(first + a, first + b) for a, b in pm.valid_runs(ref_codes[first:stop])]
+        period_runs.append(sub_runs)
+        runs.extend(sub_runs)
+
+    filled_pred = pm.fill_abstentions(pred_codes, runs)
+    gt_spells = pm.possession_spells(ref_codes, runs)
+    pred_spells = pm.possession_spells(filled_pred, runs)
+    spell_summary = pm.spell_scores(ref_codes, filled_pred, runs)
+    pairs_05, matched_gt_05, matched_pred_05 = _greedy_match_pairs(
+        gt_spells, pred_spells, pm.SPELL_IOU_HEADLINE
+    )
+
+    gt_likely_split = np.zeros(len(gt_spells), dtype=bool)
+    for i, (gt_start, gt_stop, gt_code) in enumerate(gt_spells):
+        gt_len = float(gt_stop - gt_start)
+        qualifying = 0
+        for pred_start, pred_stop, pred_code in pred_spells:
+            if pred_code != gt_code or pred_stop <= gt_start or gt_stop <= pred_start:
+                continue
+            overlap = min(gt_stop, pred_stop) - max(gt_start, pred_start)
+            if overlap / gt_len >= 0.10:
+                qualifying += 1
+        gt_likely_split[i] = qualifying >= 2
+
+    pred_likely_merge = np.zeros(len(pred_spells), dtype=bool)
+    for j, (pred_start, pred_stop, pred_code) in enumerate(pred_spells):
+        pred_len = float(pred_stop - pred_start)
+        qualifying = 0
+        for gt_start, gt_stop, gt_code in gt_spells:
+            if gt_code != pred_code or pred_stop <= gt_start or gt_stop <= pred_start:
+                continue
+            overlap = min(gt_stop, pred_stop) - max(gt_start, pred_start)
+            if overlap / pred_len >= 0.10:
+                qualifying += 1
+        pred_likely_merge[j] = qualifying >= 2
+
+    graded = covered & (ref_codes != pm.X)
+    wrong_team_mask = graded & (
+        ((ref_codes == pm.H) & (pred_codes == pm.A))
+        | ((ref_codes == pm.A) & (pred_codes == pm.H))
+    )
+    gt_has_wrong_team = np.zeros(len(gt_spells), dtype=bool)
+    gt_majority_wrong_team = np.zeros(len(gt_spells), dtype=bool)
+    for i, (gt_start, gt_stop, gt_code) in enumerate(gt_spells):
+        opp_code = pm.A if gt_code == pm.H else pm.H
+        opp_frames = int(np.sum(pred_codes[gt_start:gt_stop] == opp_code))
+        gt_has_wrong_team[i] = opp_frames > 0
+        gt_majority_wrong_team[i] = opp_frames > 0.5 * (gt_stop - gt_start)
+
+    duration_bins = {}
+    for low, high in zip(DURATION_BINS_SECONDS[:-1], DURATION_BINS_SECONDS[1:]):
+        key = f"{low}_{high}s"
+        indices = [
+            i for i, (gt_start, gt_stop, _) in enumerate(gt_spells)
+            if low <= (gt_stop - gt_start) / fps < high
+        ]
+        n_bin = len(indices)
+        n_matched_bin = sum(1 for i in indices if i in matched_gt_05)
+        duration_bins[key] = {
+            "min_s": float(low),
+            "max_s": float(high),
+            "reference_count": int(n_bin),
+            "matched_iou_05_count": int(n_matched_bin),
+            "missed_iou_05_count": int(n_bin - n_matched_bin),
+            "recall_iou_05": float(n_matched_bin / n_bin) if n_bin else None,
+            "likely_split_count": int(sum(1 for i in indices if gt_likely_split[i])),
+            "wrong_team_overlap_count": int(sum(1 for i in indices if gt_has_wrong_team[i])),
+            "majority_wrong_team_count": int(sum(1 for i in indices if gt_majority_wrong_team[i])),
+        }
+
+    geometry = arrays["geometry"]
+    finite_geom = np.isfinite(geometry)
+    geom_supports_ref = graded & finite_geom & (
+        ((ref_codes == pm.H) & (geometry > 0))
+        | ((ref_codes == pm.A) & (geometry < 0))
+    )
+    geom_opposes_ref = graded & finite_geom & (
+        ((ref_codes == pm.H) & (geometry < 0))
+        | ((ref_codes == pm.A) & (geometry > 0))
+    )
+    suppressed_correct_geometry = geom_supports_ref & (pred_codes != ref_codes)
+    selected_wrong_geometry = geom_opposes_ref & wrong_team_mask
+    if "ball_observed" in arrays:
+        missing_ball = graded & np.isfinite(arrays["ball_observed"]) & (arrays["ball_observed"] <= 0.5)
+    else:
+        missing_ball = graded & np.isfinite(arrays["missing"]) & (arrays["missing"] > 0.5)
+
+    start_errors = np.asarray(
+        [pred_spells[p][0] - gt_spells[g][0] for g, p, _ in pairs_05], dtype=np.float64
+    )
+    end_errors = np.asarray(
+        [pred_spells[p][1] - gt_spells[g][1] for g, p, _ in pairs_05], dtype=np.float64
+    )
+
+    gt_dead_spells = [(a, b, k) for a, b, k in pm.segments(ref_codes, runs) if k == pm.D]
+    pred_dead_spells = [(a, b, k) for a, b, k in pm.segments(filled_pred, runs) if k == pm.D]
+    dead_pairs_05, _, _ = _greedy_match_pairs(
+        gt_dead_spells, pred_dead_spells, pm.SPELL_IOU_HEADLINE
+    )
+
+    gt_trans_periods = [pm.transitions(ref_codes, sub_runs) for sub_runs in period_runs]
+    pred_trans_periods = [pm.transitions(filled_pred, sub_runs) for sub_runs in period_runs]
+    gt_restarts_periods = [
+        [t for t in trans if t[1] == pm.D and t[2] in pm.POSSESSION_LABELS]
+        for trans in gt_trans_periods
+    ]
+    pred_restarts_periods = [
+        [t for t in trans if t[1] == pm.D and t[2] in pm.POSSESSION_LABELS]
+        for trans in pred_trans_periods
+    ]
+
+    return {
+        "schema_version": 1,
+        "caveat": (
+            "Categories overlap; they do not partition FP/FN or establish physical causes. "
+            "Raw timelines remain local."
+        ),
+        "matching": {
+            "spell_f1_mean": float(spell_summary["mean_f1"]),
+            "n_gt_spells": int(spell_summary["n_gt"]),
+            "n_pred_spells": int(spell_summary["n_pred"]),
+            "iou_05": spell_summary["per_iou"][pm.SPELL_IOU_HEADLINE],
+            "per_iou": {
+                f"{iou:.1f}": values for iou, values in spell_summary["per_iou"].items()
+            },
+        },
+        "structural_errors": {
+            "likely_split_count": int(gt_likely_split.sum()),
+            "unmatched_likely_split_count": int(
+                sum(1 for i in range(len(gt_spells)) if gt_likely_split[i] and i not in matched_gt_05)
+            ),
+            "likely_merge_count": int(pred_likely_merge.sum()),
+            "unmatched_likely_merge_count": int(
+                sum(1 for j in range(len(pred_spells)) if pred_likely_merge[j] and j not in matched_pred_05)
+            ),
+            "wrong_team_overlap_frames": int(wrong_team_mask.sum()),
+            "wrong_team_overlap_reference_spells": int(gt_has_wrong_team.sum()),
+            "majority_wrong_team_reference_spells": int(gt_majority_wrong_team.sum()),
+        },
+        "duration_bins_seconds": duration_bins,
+        "evidence_associations": {
+            "graded_frames": int(graded.sum()),
+            "missing_ball_frames": int(missing_ball.sum()),
+            "missing_ball_error_frames": int(np.sum(missing_ball & (pred_codes != ref_codes))),
+            "suppressed_correct_geometry_frames": int(suppressed_correct_geometry.sum()),
+            "selected_wrong_geometry_frames": int(selected_wrong_geometry.sum()),
+        },
+        "boundary_error_iou_05": {
+            "matched_spell_count": int(len(pairs_05)),
+            "start_error_frames": _statistics(start_errors),
+            "end_error_frames": _statistics(end_errors),
+            "abs_start_error_frames": _statistics(np.abs(start_errors)),
+            "abs_end_error_frames": _statistics(np.abs(end_errors)),
+            "start_error_s": _statistics(start_errors / fps),
+            "end_error_s": _statistics(end_errors / fps),
+        },
+        "stoppage": {
+            "missed_dead_frames": int(np.sum(graded & (ref_codes == pm.D) & (pred_codes != pm.D))),
+            "false_dead_frames": int(np.sum(graded & (ref_codes != pm.D) & (pred_codes == pm.D))),
+            "dead_intervals_iou_05": _interval_prf(
+                len(dead_pairs_05), len(pred_dead_spells), len(gt_dead_spells)
+            ),
+            "transitions_12": _period_transition_summary(
+                gt_trans_periods, pred_trans_periods, 12, fps
+            ),
+            "restart_transitions_12": _period_transition_summary(
+                gt_restarts_periods, pred_restarts_periods, 12, fps
+            ),
         },
     }
 

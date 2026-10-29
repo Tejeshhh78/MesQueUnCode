@@ -14,8 +14,13 @@ and maps one-based ATD indexing to zero-based CSV frames. Distances use pitch
 metres. Track slots identify team membership, not stable player identities.
 
 Team evidence combines the nearest-player distance difference with bounded
-soft tactical support. Geometry uses a 2.5 m distance scale, a 6 m distance decay
-and reduced support for fast loose balls. Attacking tags support their named
+soft tactical support. In `incumbent` and `responsive`, geometry uses a 2.5 m
+distance scale, a 6 m distance decay and reduced support for fast loose balls.
+In the `controlled` profile, geometry uses a soft 0.6 m touch-reach margin, a
+1.8 m Gaussian close-control envelope, ball-minus-player excess-speed damping,
+multi-window 0.28 s directional persistence and a causal loose-ball retention
+state (2.5 s live decay, 0.35 s dead-ball decay) so pass flight retains the
+last verified controlling team rather than flipping to nearby opponents. Attacking tags support their named
 team; defensive tags support its opponent. Correlated tags combine by maximum,
 with team strength 1.25; they never directly supply output labels.
 
@@ -90,11 +95,30 @@ isolated motion-inconsistent ball observations using the existing 45 m/s bound.
 Its J03WMX pilot predictions were identical to incumbent; no natural-match gain
 was established. It remains an optional experiment.
 
-The responsive convenience default was set to the already selected cost 12 after
-final evaluation. Frozen prediction hashes were reproduced after that packaging
-change without rereading final reference labels or recomputing scores. Incumbent
-remains the CLI default for compatibility. New development should beat responsive
-12 on independent data. Adapter and evaluation commands are in
+The predeclared [temporal-control protocol](experiments/temporal-control-003.json)
+tested a single frozen candidate (`controlled`, H/A switch cost 12) against
+`responsive` (cost 12), using `J03WMX`/`J03WOH` for development and reserving two
+previously unseen IDSSE games (`J03WPY`/`J03WQQ`, 284,812 source frames) for one
+locked final evaluation. All predeclared development and final gates passed:
+
+| Split and match | Responsive, cost 12 | Controlled, cost 12 | Delta spellF1 | Delta macroF1 |
+|---|---:|---:|---:|---:|
+| Development J03WMX | 0.390000 | 0.485399 | +0.095399 | +0.031378 |
+| Development J03WOH | 0.445630 | 0.528743 | +0.083113 | +0.029532 |
+| Development mean | 0.417815 | 0.507071 | +0.089256 | +0.030455 |
+| Final J03WPY | 0.434415 | 0.527561 | +0.093147 | +0.029675 |
+| Final J03WQQ | 0.448957 | 0.530154 | +0.081197 | +0.031414 |
+| Final mean | 0.441686 | 0.528858 | +0.087172 | +0.030545 |
+
+On the two unseen final matches (`J03WPY`, `J03WQQ`), equal-match mean `spellF1`
+increased by +0.087172 (+19.74% relative). At IoU 0.5, matched possessions rose
+from 320 to 371 while unmatched predictions fell from 286 to 213; transition-12 F1
+improved by +0.085453 and +0.117133, D recall changed by -0.002842 and -0.000293,
+and median prediction runtime ratios were 1.013 and 1.015. `J03WPY` and `J03WQQ`
+are now consumed final tests and excluded from further design or selection.
+
+The responsive and controlled convenience defaults use cost 12. Incumbent
+remains the CLI default for compatibility. Adapter and evaluation commands are in
 [INDEPENDENT_VALIDATION.md](INDEPENDENT_VALIDATION.md).
 
 ## Public pipeline check and runtime
@@ -122,26 +146,28 @@ in response to this check, including the incumbent's higher public score.
 
 ## Verification and reproduction
 
-All 91 tests passed on the recorded implementation, including exhaustive small
-Viterbi problems, input alignment, short control versus deflections, half resets,
-label/input separation, diagnostics invariance and evaluation protocol guards.
+All 99 tests passed on the recorded implementation, including exhaustive small
+Viterbi problems, input alignment, short control versus deflections, contested
+receptions with pass-flight retention, half resets, label/input separation,
+diagnostics invariance and evaluation protocol guards.
 `pip check` found no broken requirements; no extra runtime dependency was added.
 The pinned environment was already installed locally; a fresh online dependency
 installation was not tested.
 
-Both profiles regenerate valid, byte-identical 199,319-row CSVs. X occurs only
+All profiles regenerate valid, byte-identical 199,319-row CSVs. X occurs only
 outside published halves. SHA-256:
 
 - Incumbent: `3ce21a4bf873fcfe7a04013408537d230e8a32d361ea18ec430d6e12c77bd43e`.
 - Responsive 12: `368f50cd5d6d826b97c80e1d492dd474392429ed1430ce60ead243c62d1ebea2`.
+- Controlled 12: `d9b720ff3c57cc58592172ef74e2ad0aee4356ad8710fe48a509d8cab7b94e44`.
 
 From the repository root, with data in the official layout:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r solution/requirements.txt
 .\.venv\Scripts\python.exe -m unittest discover -s solution/tests -v
-.\.venv\Scripts\python.exe -m solution.code.possession --profile responsive --team-switch-cost 12 --team MesQueUnCode --output-dir solution/reports/responsive-12
-.\.venv\Scripts\python.exe evaluation/validate_submission.py solution/reports/responsive-12/MesQueUnCode.csv
+.\.venv\Scripts\python.exe -m solution.code.possession --profile controlled --team-switch-cost 12 --team MesQueUnCode --output-dir solution/reports/controlled-12
+.\.venv\Scripts\python.exe evaluation/validate_submission.py solution/reports/controlled-12/MesQueUnCode.csv
 ```
 
 Use the registered team name and `--data-dir BUNDLE_ROOT` when needed. Outputs

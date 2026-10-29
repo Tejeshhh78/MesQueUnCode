@@ -27,7 +27,34 @@
     "caveat": "Categories overlap; they do not partition FP/FN or establish physical causes. Raw timelines remain local."
   },
   "variant_budget": 1,
-  "candidate_specification": "To be fixed after baseline-only development diagnosis and before candidate scores; no grid search.",
+  "candidate_specification": {
+    "profile": "controlled",
+    "team_switch_cost": 12.0,
+    "touch_reach_m": 0.6,
+    "close_margin_scale_m": 1.0,
+    "close_reach_sigma_m": 1.8,
+    "excess_speed_onset_m_s": 5.0,
+    "excess_speed_span_m_s": 10.0,
+    "excess_speed_max_damping": 0.85,
+    "persistence_window_s": 0.28,
+    "persistence_onset": 0.35,
+    "persistence_span": 0.40,
+    "live_retention_tau_s": 2.5,
+    "dead_retention_tau_s": 0.35,
+    "retention_cap": 1.6,
+    "same_team_update_rate": 0.35,
+    "turnover_update_rate": 0.65
+  },
+  "reserved_final_figshare_files": {
+    "J03WPY": {
+      "metadata": {"id": 51643487, "name": "DFL_02_01_matchinformation_DFL-COM-000002_DFL-MAT-J03WPY.xml", "md5": "65a4568e4f374af94d3c1015cbc7c4f5", "size": 11922},
+      "tracking": {"id": 51643526, "name": "DFL_04_03_positions_raw_observed_DFL-COM-000002_DFL-MAT-J03WPY.xml", "md5": "e56ff1336a334f8da51110fbe7cab764", "size": 371688499}
+    },
+    "J03WQQ": {
+      "metadata": {"id": 51643484, "name": "DFL_02_01_matchinformation_DFL-COM-000002_DFL-MAT-J03WQQ.xml", "md5": "5979209af316a914ce57347d0633df6c", "size": 11932},
+      "tracking": {"id": 51643529, "name": "DFL_04_03_positions_raw_observed_DFL-COM-000002_DFL-MAT-J03WQQ.xml", "md5": "9105bad987191d3c3c362c1fce9a4fcd", "size": 356219423}
+    }
+  },
   "minimum_development_matches": 2,
   "minimum_new_final_matches": 2,
   "minimum_mean_spell_f1_gain": 0.02,

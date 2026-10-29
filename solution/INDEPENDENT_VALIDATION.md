@@ -9,8 +9,9 @@ are in [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md).
 | IDSSE match IDs | Permitted role for further work |
 |---|---|
 | J03WMX, J03WOH | Existing development games |
-| J03WN1, J03WOY | Consumed final tests: historical results only; no further design or selection |
-| J03WPY, J03WQQ, J03WR9 | Outside the recorded four-game experiment; verify prior use before assigning new roles |
+| J03WN1, J03WOY | Consumed final tests (experiment 002): historical results only; no further design or selection |
+| J03WPY, J03WQQ | Consumed final tests (experiment 003): historical results only; no further design or selection |
+| J03WR9 | Remaining unused public IDSSE match; verify prior use before assigning a role |
 
 Assign complete physical matches to training, development or final test before
 examining candidate scores. Repeated crops/views belong to the same group.
@@ -31,9 +32,11 @@ retaining their filenames in `solution/reports/external/idsse/`. Data attributio
 | J03WN1 | [51643472](https://ndownloader.figshare.com/files/51643472) | [51643517](https://ndownloader.figshare.com/files/51643517) |
 | J03WOH | [51643478](https://ndownloader.figshare.com/files/51643478) | [51643520](https://ndownloader.figshare.com/files/51643520) |
 | J03WOY | [51643481](https://ndownloader.figshare.com/files/51643481) | [51643523](https://ndownloader.figshare.com/files/51643523) |
+| J03WPY | [51643487](https://ndownloader.figshare.com/files/51643487) | [51643526](https://ndownloader.figshare.com/files/51643526) |
+| J03WQQ | [51643484](https://ndownloader.figshare.com/files/51643484) | [51643529](https://ndownloader.figshare.com/files/51643529) |
 
-These eight files total about 1.52 GB. Existing downloads were checked against
-published MD5 values. The importer records original URLs and SHA-256 hashes.
+Downloaded files were checked against published MD5 values. The importer records
+original URLs and SHA-256 hashes.
 
 Fresh conversion, without inference or scoring:
 

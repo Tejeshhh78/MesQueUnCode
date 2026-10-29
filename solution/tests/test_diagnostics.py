@@ -9,7 +9,7 @@ import numpy as np
 
 from solution.code.possession.data import Features
 from solution.code.possession.diagnostics import (
-    ROOT, TRACE_FEATURES, aggregate_diagnostics, write_diagnostics,
+    ROOT, TRACE_FEATURES, aggregate_diagnostics, reference_diagnostics, write_diagnostics,
 )
 from solution.code.possession.model import predict
 
@@ -166,6 +166,68 @@ class PredictionTraceTests(unittest.TestCase):
                 expected_rejected_fraction = 1 / 120 if profile == "reliable" else 0
                 self.assertAlmostEqual(result["feature_statistics"]["ball_rejected"]["mean"],
                                        expected_rejected_fraction)
+
+
+class ReferenceDiagnosticsTests(unittest.TestCase):
+    def test_reference_diagnostics_aggregates_splits_merges_boundaries_and_stoppages(self):
+        n = 120
+        ref = np.full(n, "X", dtype="<U1")
+        pred = np.full(n, "X", dtype="<U1")
+        # Period 1: frames 10..69 (60 frames)
+        # GT: H 10..29 (20f = 0.8s), A 30..49 (20f = 0.8s), H 50..69 (20f = 0.8s)
+        ref[10:30] = "H"
+        ref[30:50] = "A"
+        ref[50:70] = "H"
+        # Pred merges the two H spells across the A spell: H 10..69
+        pred[10:70] = "H"
+        # Period 2: frames 75..114 (40 frames)
+        # GT: D 75..84 (10f), A 85..114 (30f = 1.2s)
+        ref[75:85] = "D"
+        ref[85:115] = "A"
+        # Pred splits A 85..114 into two A spells separated by D, with a 2-frame late start:
+        # D 75..86, A 87..96 (10f), D 97..100 (4f), A 101..114 (14f)
+        pred[75:87] = "D"
+        pred[87:97] = "A"
+        pred[97:101] = "D"
+        pred[101:115] = "A"
+
+        trace = synthetic_trace(n)
+        trace["missing"][:] = 0.0
+        trace["geometry"][10:30] = 1.0
+        trace["geometry"][30:40] = -1.0  # supports A, but pred is H -> suppressed_correct_geometry (10f)
+        trace["geometry"][40:50] = 1.0   # opposes A, and pred is H -> selected_wrong_geometry (10f)
+        trace["missing"][35:40] = 1.0    # 5 missing frames during wrong team
+
+        blocks = [(1, 10, 69), (2, 75, 114)]
+        summary = reference_diagnostics(ref, pred, trace, blocks, 25)
+        encoded = json.dumps(summary, allow_nan=False)
+        self.assertNotIn("start_frame", encoded)
+        self.assertEqual(summary["matching"]["n_gt_spells"], 4)
+        self.assertEqual(summary["matching"]["n_pred_spells"], 3)
+        self.assertEqual(summary["structural_errors"]["likely_merge_count"], 1)
+        self.assertEqual(summary["structural_errors"]["likely_split_count"], 1)
+        self.assertEqual(summary["structural_errors"]["wrong_team_overlap_frames"], 20)
+        self.assertEqual(summary["structural_errors"]["wrong_team_overlap_reference_spells"], 1)
+        self.assertEqual(summary["structural_errors"]["majority_wrong_team_reference_spells"], 1)
+        self.assertEqual(summary["duration_bins_seconds"]["0_2s"]["reference_count"], 4)
+        self.assertEqual(summary["evidence_associations"]["missing_ball_frames"], 5)
+        self.assertEqual(summary["evidence_associations"]["missing_ball_error_frames"], 5)
+        self.assertEqual(summary["evidence_associations"]["suppressed_correct_geometry_frames"], 10)
+        self.assertEqual(summary["evidence_associations"]["selected_wrong_geometry_frames"], 10)
+        self.assertEqual(summary["stoppage"]["missed_dead_frames"], 0)
+        self.assertEqual(summary["stoppage"]["false_dead_frames"], 6)
+        self.assertEqual(summary["stoppage"]["dead_intervals_iou_05"]["n_matched"], 1)
+        self.assertEqual(summary["stoppage"]["restart_transitions_12"]["n_matched"], 1)
+        self.assertAlmostEqual(
+            summary["stoppage"]["restart_transitions_12"]["latency_frames"]["mean"], 2.0
+        )
+
+    def test_reference_diagnostics_rejects_non_x_outside_blocks(self):
+        trace = synthetic_trace(6)
+        with self.assertRaises(ValueError):
+            reference_diagnostics(
+                np.array(list("HAAAAX")), np.array(list("XAAAAX")), trace, [(1, 1, 4)], 25
+            )
 
 
 if __name__ == "__main__":

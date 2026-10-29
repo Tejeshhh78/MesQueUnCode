@@ -2,8 +2,11 @@
 
 This guide explains inputs, evidence, temporal decoding and official metrics.
 The formulas and examples describe the incumbent (H/A switching cost 20).
-The responsive profile uses the same method with cost 12. The optional reliable
-profile additionally filters isolated motion-inconsistent ball positions.
+The responsive profile uses the same method with cost 12. The controlled profile
+(also cost 12) refines geometric team evidence with close-reach margins,
+ball-minus-player excess-speed damping, short-window directional persistence and
+causal pass-flight retention. The optional reliable profile additionally filters
+isolated motion-inconsistent ball positions.
 Measured quality and data limitations are in [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md);
 installation and commands are in [README.md](README.md).
 
@@ -152,7 +155,7 @@ For each frame, the loader retains compact features rather than full trajectorie
 | Ball x/y position | Yes |
 | Minimum ball distance to each team | Yes |
 | Mean valid player speed | Yes |
-| Speed of the closest player on each team | Extracted, currently unused |
+| Speed of the closest player on each team | Yes, in `controlled` profile (`incumbent`/`responsive`: extracted only) |
 | Fraction of valid player speeds above 2 m/s | Extracted, currently unused |
 | Visible player count | Extracted, currently unused |
 
@@ -200,6 +203,18 @@ At ball speeds above 10 m/s, the model progressively reduces this signal, reachi
 30% of its original strength at 25 m/s and above, where speed remains usable.
 The intention is to avoid handing possession to somebody just because a fast ball
 passes nearby. Both team distances must be available; otherwise geometry is neutral.
+
+In the `controlled` profile ([`controlled_geometry`](code/possession/model.py)),
+instantaneous close control applies a soft 0.6 m touch-reach margin
+`clip((max(0, dA - 0.6) - max(0, dH - 0.6)) / 1.0, -2.5, 2.5)`, weighted by a
+Gaussian close-reach envelope `exp(-(min(dH, dA) / 1.8)^2)` and damped when ball
+speed exceeds the nearest player's speed by more than 5 m/s. Multi-window
+directional consistency over 0.28 s (backward, centred and forward windows)
+suppresses 1-3 frame glances while preserving the exact start and end frames of
+sustained receptions. During pass flight (`min(dH, dA) > 1.8 m`), a causal
+retention state (`2.5 s` live decay, `0.35 s` dead-ball decay) retains the last
+team that established verified close control until another team establishes
+close control or play stops.
 
 **Limitation:** proximity and speed do not establish contact or control. Ball
 height, a player's body orientation and actual foot/head contact are not observed.

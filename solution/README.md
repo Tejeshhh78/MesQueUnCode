@@ -13,8 +13,8 @@ Run from the repository root. Tested with CPython 3.12.14; on Linux/macOS use
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r solution/requirements.txt
 .\.venv\Scripts\python.exe -m unittest discover -s solution/tests -v
-.\.venv\Scripts\python.exe -m solution.code.possession --profile responsive --team-switch-cost 12 --output-dir solution/reports/responsive-12
-.\.venv\Scripts\python.exe evaluation/validate_submission.py solution/reports/responsive-12/MesQueUnCode.csv
+.\.venv\Scripts\python.exe -m solution.code.possession --profile controlled --team-switch-cost 12 --output-dir solution/reports/controlled-12
+.\.venv\Scripts\python.exe evaluation/validate_submission.py solution/reports/controlled-12/MesQueUnCode.csv
 ```
 
 Place the tactical tracking metadata, tracking text and Smart Tagging XML under
@@ -25,11 +25,12 @@ Videos and broadcast tracking are not required.
 | Profile | Behaviour |
 |---|---|
 | `incumbent` | Original team solution; CLI default; H/A switch cost 20 |
-| `responsive` | Independently evaluated candidate; H/A switch cost 12 |
+| `responsive` | Independently evaluated switch-cost candidate; H/A switch cost 12 |
+| `controlled` | Independently evaluated temporal-control evidence candidate; H/A switch cost 12 |
 | `reliable` | Experimental isolated ball-position filter; no demonstrated natural-match gain |
 
 The original hackathon `baseline_smooth50` is a separate method under `starter/`.
-New development must compare against `responsive` with cost 12.
+New development must compare against `controlled` (or `responsive`) with cost 12.
 
 Outputs are `MesQueUnCode.csv`, `MesQueUnCode.manifest.json` and a technical
 Markdown document. The manifest records input/source/output hashes and the

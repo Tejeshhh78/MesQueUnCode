@@ -161,7 +161,7 @@ def tagging_evidence(events, names, n, fps, ball_speed, collective_speed):
     return support[:, 0] - support[:, 1], live - dead + restart_live, unknown_teams
 
 
-PROFILES = ("incumbent", "reliable", "responsive")
+PROFILES = ("incumbent", "reliable", "responsive", "controlled")
 TRACE_FIELDS = ("geometry", "tag_team", "team", "activity", "moving", "missing",
                 "stationary", "slow", "outside", "status_tags", "alive",
                 "ball_observed", "ball_rejected")
@@ -173,7 +173,98 @@ def profile_config(profile):
         raise ValueError(f"Unknown model profile: {profile}")
     # Cost 12 was selected on independent development games and then evaluated
     # unchanged on two reserved matches (control-switch-cost-002).
-    return Config(team_switch_cost=12.0) if profile == "responsive" else Config()
+    return Config(team_switch_cost=12.0) if profile in ("responsive", "controlled") else Config()
+
+
+def controlled_geometry(distance, player_speed, ball_speed, valid, dead_like, fps, config):
+    """Compute bounded temporal-control geometry evidence within a single period block.
+
+    Distinguishes sustained close ball control (including contested receptions)
+    from brief opponent proximity, fast passing flight, and weak long-range
+    proximity, while retaining last verified close control across pass flight.
+    """
+    length = len(distance)
+    if length == 0:
+        return np.zeros(0, dtype=np.float64)
+    d_h = np.nan_to_num(distance[:, 0], nan=1e6)
+    d_a = np.nan_to_num(distance[:, 1], nan=1e6)
+    min_d = np.minimum(d_h, d_a)
+    near = np.nan_to_num(np.exp(-min_d / config.control_radius_m))
+    base = np.where(
+        valid,
+        np.clip((d_a - d_h) / config.distance_margin_m, -2.5, 2.5) * near,
+        0.0,
+    )
+    base *= 1.0 - 0.7 * np.nan_to_num(np.clip((ball_speed - 10.0) / 15.0, 0.0, 1.0))
+
+    eff_h = np.maximum(0.0, d_h - 0.6)
+    eff_a = np.maximum(0.0, d_a - 0.6)
+    raw_margin = np.clip((eff_a - eff_h) / 1.0, -2.5, 2.5)
+
+    close_reach = np.exp(-((min_d / 1.8) ** 2))
+    v_h = np.nan_to_num(player_speed[:, 0], nan=3.0)
+    v_a = np.nan_to_num(player_speed[:, 1], nan=3.0)
+    v_near = np.where(d_h < d_a, v_h, np.where(d_a < d_h, v_a, 0.5 * (v_h + v_a)))
+    b_speed = np.nan_to_num(ball_speed, nan=0.0)
+    excess_speed = np.maximum(0.0, b_speed - np.clip(v_near, 0.0, 12.0))
+    speed_gate = 1.0 - 0.85 * np.clip((excess_speed - 5.0) / 10.0, 0.0, 1.0)
+    w_close = np.where(valid, close_reach * speed_gate, 0.0)
+    g_inst = np.where(valid, raw_margin * w_close, 0.0)
+
+    w = max(3, round(0.28 * fps))
+    unit = np.sign(g_inst) * np.minimum(1.0, np.abs(g_inst) / 0.5)
+    csum = np.concatenate(([0.0], np.cumsum(unit)))
+    idx = np.arange(length)
+    b_lo, b_hi = np.maximum(0, idx - w + 1), idx + 1
+    c_lo, c_hi = np.maximum(0, idx - w // 2), np.minimum(length, idx + (w + 1) // 2)
+    f_lo, f_hi = idx, np.minimum(length, idx + w)
+    mean_b = (csum[b_hi] - csum[b_lo]) / np.maximum(1, b_hi - b_lo)
+    mean_c = (csum[c_hi] - csum[c_lo]) / np.maximum(1, c_hi - c_lo)
+    mean_f = (csum[f_hi] - csum[f_lo]) / np.maximum(1, f_hi - f_lo)
+    sign = np.sign(g_inst)
+    same_dir = np.maximum(np.maximum(sign * mean_b, sign * mean_c), sign * mean_f)
+    persistence = np.clip((same_dir - 0.35) / 0.40, 0.0, 1.0)
+    g_close = g_inst * (0.15 + 0.85 * persistence)
+
+    log_live = -1.0 / max(1.0, 2.5 * fps)
+    log_dead = -1.0 / max(1.0, 0.35 * fps)
+    active = (~dead_like) & (w_close >= 0.35) & (persistence >= 0.5) & (np.abs(g_close) >= 0.75)
+    log_decay = np.where(active, 0.0, np.where(dead_like, log_dead, log_live))
+    cum_log_decay = np.cumsum(log_decay)
+
+    act_idx = np.flatnonzero(active)
+    m = np.zeros(length, dtype=np.float64)
+    if len(act_idx):
+        act_wp = (w_close[act_idx] * persistence[act_idx]).tolist()
+        act_tgt = np.clip(g_close[act_idx], -1.6, 1.6).tolist()
+        act_cl = cum_log_decay[act_idx].tolist()
+        act_m = [0.0] * len(act_idx)
+        state = 0.0
+        prev_cl = 0.0
+        exp = np.exp
+        for k, (wp, tgt, cl) in enumerate(zip(act_wp, act_tgt, act_cl)):
+            if cl != prev_cl:
+                state *= float(exp(cl - prev_cl))
+                prev_cl = cl
+            alpha = 0.65 * wp if state * tgt < 0.0 else 0.35 * wp
+            if alpha > 1.0:
+                alpha = 1.0
+            state = (1.0 - alpha) * state + alpha * tgt
+            act_m[k] = state
+        last_pos = np.maximum.accumulate(np.where(active, idx, -1))
+        has_prev = last_pos >= 0
+        m_anchor = np.zeros(length, dtype=np.float64)
+        m[act_idx] = act_m
+        m_anchor[has_prev] = m[last_pos[has_prev]]
+        cl_anchor = np.zeros(length, dtype=np.float64)
+        cl_anchor[has_prev] = cum_log_decay[last_pos[has_prev]]
+        m = np.where(has_prev, m_anchor * np.exp(cum_log_decay - cl_anchor), 0.0)
+
+    r = np.clip(w_close * (0.25 + 0.75 * persistence), 0.0, 1.0)
+    c_mem = np.clip(np.abs(m) / 0.6, 0.0, 1.0)
+    g_loose = c_mem * (0.85 * m) + (1.0 - c_mem) * (0.5 * base)
+    combined = np.clip(r * g_close + (1.0 - r) * g_loose, -2.5, 2.5)
+    return np.where(valid, combined, 0.0)
 
 
 def reliable_ball_mask(ball, observed, pitch, fps, max_speed=45.0):
@@ -246,11 +337,18 @@ def emissions(features, events, blocks, pitch, fps, config=None, *, profile="inc
                               | (ball[:, 1] < -0.008) | (ball[:, 1] > 1.008))
         distance = features.distance[start:stop]
         valid = np.isfinite(distance).all(axis=1) & sensible
-        near = np.nan_to_num(np.exp(-np.nan_to_num(np.min(distance, axis=1), nan=1e6) / config.control_radius_m))
-        geometry = np.where(valid, np.clip(np.nan_to_num(distance[:, 1] - distance[:, 0])
-                            / config.distance_margin_m, -2.5, 2.5) * near, 0.0)
-        # A fast loose ball does not prove that the nearest player controls it.
-        geometry *= 1 - 0.7 * np.nan_to_num(np.clip((ball_speed - 10) / 15, 0, 1))
+        if profile == "controlled":
+            dead_like = outside | ((stationary * slow) > 0.5)
+            geometry = controlled_geometry(
+                distance, features.player_speed[start:stop], ball_speed,
+                valid, dead_like, fps, config,
+            )
+        else:
+            near = np.nan_to_num(np.exp(-np.nan_to_num(np.min(distance, axis=1), nan=1e6) / config.control_radius_m))
+            geometry = np.where(valid, np.clip(np.nan_to_num(distance[:, 1] - distance[:, 0])
+                                / config.distance_margin_m, -2.5, 2.5) * near, 0.0)
+            # A fast loose ball does not prove that the nearest player controls it.
+            geometry *= 1 - 0.7 * np.nan_to_num(np.clip((ball_speed - 10) / 15, 0, 1))
         local_events = [{**e, "start": max(0, e["start"] - start),
                          "stop": min(length, e["stop"] - start)}
                         for e in events if e["start"] < stop and e["stop"] > start]
