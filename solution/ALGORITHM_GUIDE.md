@@ -1,52 +1,27 @@
-# Understanding our possession algorithm
+# Understanding the possession algorithm
 
-Team learning and development guide · Updated 28 October 2026
+This guide explains inputs, evidence, temporal decoding and official metrics.
+The formulas and examples describe the incumbent (H/A switching cost 20).
+The responsive profile uses the same method with cost 12. The optional reliable
+profile additionally filters isolated motion-inconsistent ball positions.
+Measured quality and data limitations are in [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md);
+installation and commands are in [README.md](README.md).
 
-This guide explains the algorithm at commit `b5eac8b` (unchanged by the
-27 October move into `solution/code/`), the official scoring
-code, and the fixed comparison originally recorded in `artifacts/head-to-head/`.
-New comparison runs default to `solution/reports/head-to-head/`. It is a
-longer companion to the submission-oriented [technical report](TECHNICAL_REPORT.md).
-Local generated reports are ignored by Git; their aggregate findings are included
-below so this explanation remains useful in a fresh clone.
+The system processes tracking and automatic tactical tags, not video pixels.
+Its evidence scores are not calibrated probabilities. The decoder finds the best
+path under those scores; an exact optimiser does not guarantee correct football
+interpretation when observations or evidence are wrong.
 
-The explanation below describes the **incumbent**. Optional `reliable` and
-`responsive` profiles are independent development experiments: respectively a
-ball-position consistency filter and a reduced team-switch penalty. They do not
-silently replace the incumbent. The new diagnostics, other-match data adapter,
-validation protocol and experiment findings are documented in
-[INDEPENDENT_VALIDATION.md](INDEPENDENT_VALIDATION.md).
+## Contents
 
-Our method combines **evidence about ball control**, **evidence about whether play
-is live**, and **an optimiser that chooses a consistent sequence of states**.
-It consumes tracking coordinates and automatic tactical tags. It does not analyse
-video pixels itself. Most of its assumptions are explicit rules and weights; one
-small movement model is fitted without possession labels.
-
-The competition rewards recovery of complete possession phases. Runtime matters
-for practicality, but is not a ranking criterion in the current official scorer.
-A faster program and a better possession detector are separate achievements.
-
-Throughout this guide:
-
-- **Implemented** describes behaviour visible in the source code.
-- **Measured** describes an executed test or an existing official aggregate report.
-- **Hypothesis** describes a possible explanation that has not been isolated experimentally.
-- **Proposed** describes future work, not functionality already delivered.
-
-## Reading map
-
-1. [What counts as possession](#1-what-counts-as-possession)
-2. [From input files to evaluated output](#2-from-input-files-to-evaluated-output)
-3. [How the original baseline works](#3-how-the-original-baseline-works)
-4. [How our algorithm builds evidence](#4-how-our-algorithm-builds-evidence)
-5. [How the temporal decoder decides](#5-how-the-temporal-decoder-decides)
-6. [How the official evaluator scores it](#6-how-the-official-evaluator-scores-it)
-7. [What our measured results mean](#7-what-our-measured-results-mean)
-8. [What is established and what remains uncertain](#8-what-is-established-and-what-remains-uncertain)
-9. [A development plan supported by evidence](#9-a-development-plan-supported-by-evidence)
-10. [Commands and source map](#10-commands-and-source-map)
-11. [Glossary](#11-glossary)
+1. [Possession definition](#1-what-counts-as-possession)
+2. [Data flow](#2-from-input-files-to-evaluated-output)
+3. [Original baseline](#3-how-the-original-baseline-works)
+4. [Evidence](#4-how-our-algorithm-builds-evidence)
+5. [Temporal decoder](#5-how-the-temporal-decoder-decides)
+6. [Official metrics](#6-how-the-official-evaluator-scores-it)
+7. [Worked examples](#7-worked-examples)
+8. [Glossary](#8-glossary)
 
 ## 1. What counts as possession
 
@@ -546,213 +521,7 @@ Adding internal abstention would not automatically improve quality.
 
 Source: [`fill_abstentions`](../evaluation/possession_metrics.py#L274).
 
-## 7. What our measured results mean
-
-These are the unchanged methods on the same public five-minute reference.
-Both use tactical tracking; our method additionally uses automatic Smart Tagging.
-
-| Metric | Original `baseline_smooth50` | Our method |
-|---|---:|---:|
-| Official mean spellF1 | 0.3256 | 0.4444 |
-| F1 at IoU 0.5 | 0.3256 | 0.5185 |
-| Matched possessions at IoU 0.5 | 7 | 7 |
-| Missed possessions at IoU 0.5 | 10 | 10 |
-| Unmatched predictions at IoU 0.5 | 19 | 3 |
-| Precision at IoU 0.5 | 26.92% | 70.00% |
-| Recall at IoU 0.5 | 41.18% | 41.18% |
-| Predicted possessions; reference 17 | 26 | 10 |
-| Mean predicted duration; reference 14.19 s | 10.80 s | 26.65 s |
-| Frame macroF1 | 0.6207 | 0.7362 |
-| Frame accuracy | 71.32% | 75.57% |
-| Dead-ball frame F1 | 0.3225 | 0.6652 |
-| Dead-ball frame recall | 21.38% | 52.21% |
-| Matched state transitions within one second; reference 20 | 2 | 3 |
-
-At IoU 0.5, the gain is **higher precision with the same number of recovered
-phases**. The ten predicted possessions are not ten correctly detected possessions:
-only seven qualify as matches at this threshold.
-
-The picture also depends on the temporal tolerance:
-
-| IoU threshold | Old matched phases | New matched phases | Old F1 | New F1 |
-|---|---:|---:|---:|---:|
-| 0.3 | 11 | 7 | 0.5116 | 0.5185 |
-| 0.4 | 10 | 7 | 0.4651 | 0.5185 |
-| 0.5 | 7 | 7 | 0.3256 | 0.5185 |
-| 0.6 | 5 | 6 | 0.2326 | 0.4444 |
-| 0.7 | 2 | 3 | 0.0930 | 0.2222 |
-
-The baseline recovers more loosely aligned phases at the two lowest thresholds.
-Our method produces fewer unmatched predictions and recovers one more phase at
-each of the two strictest thresholds. A higher F1 does not mean higher recall at
-every threshold.
-
-Two further weaknesses are visible in the aggregate results:
-
-- Our dead-ball recall is 52.21%: almost half the reference dead-ball **frames**
-  receive another label. This is not a count of missed stoppage events.
-- Only three of 20 reference state transitions match within one second.
-  The reported mean latency of about -3.3 frames applies to those three matches,
-  not all 20 transitions. Phase overlap can be adequate even when boundaries are
-  too far away to pass the stricter transition check.
-
-Our ten relatively long predicted phases are consistent with overmerging or
-missing short phases. The aggregate figures cannot establish which mechanism
-caused it: team evidence, stoppage evidence, tags and transition costs can all
-affect the outcome. Do not infer that reducing one specific parameter will fix it.
-
-The official 1,000-draw bootstrap intervals for mean spellF1 are:
-
-| Method | 5th-95th percentile |
-|---|---:|
-| Baseline | 0.2140-0.4465 |
-| Our method | 0.2370-0.6519 |
-
-They overlap substantially. There are only 17 reference possessions; 7,500 highly
-correlated frames are not 7,500 independent possession examples. Separate bootstrap
-intervals are not a paired significance test. Private full-match superiority is
-unknown. The approximately 0.04 noise band mentioned in the challenge was calibrated
-on a full match and is not a significance threshold for this public window.
-
-Also avoid comparing our public 0.4444 with the published **private full-match**
-baseline score of 0.2433. Those scores cover different data. The comparable public
-baseline score is 0.3256.
-
-Sources: locally generated `solution/reports/head-to-head/possession_quality.json` and
-`evaluation/reports/` within that directory; [official evaluation guidance](../docs/EVALUATION.md).
-
-## 8. What is established and what remains uncertain
-
-| Finding | Status | Consequence |
-|---|---|---|
-| The CSV is valid and reproducible | Verified in previous complete runs | The submission contract works |
-| Decoder agrees with exhaustive search on small synthetic cases | Verified by existing tests | Its implemented objective is solved correctly in those tests |
-| Short noise can be suppressed while a sustained switch is retained | Verified on synthetic scenarios | Temporal regularisation behaves as designed in those cases |
-| The new fixed method has higher public mean spellF1 | Measured | A descriptive result for this window |
-| Real control is recognised reliably across football matches | Not established | Requires independent representative evaluation |
-| Too few long phases are caused specifically by excessive switch cost | Hypothesis | Cannot be concluded from counts alone |
-| More features or a neural model will improve the private score | Unproven | Added complexity requires evidence |
-
-Existing tests cover input validation, frame alignment, metre scaling, block-size
-invariance, short/long gaps, tag handling, halves, synthetic stoppages, decoder
-optimality and deterministic output. They do not supply representative real-match
-accuracy evidence.
-
-For example, the current long-gap test keeps possession constant across the gap.
-It does not test a genuine unseen change inside that gap. The synthetic stoppage
-test does not establish reliable handling of incorrect set-piece tags.
-
-Important implementation limitations include two-dimensional geometry, unavailable
-ball contact/height, fixed evidence weights, fixed switching penalties and a hard
-H/A/D decision even during severe uncertainty. Extracted but unused movement and
-visibility features offer possible extensions, not guaranteed improvements.
-
-Source: [synthetic test suite](tests/test_possession.py).
-
-## 9. A development plan supported by evidence
-
-### 9.1 Keep the evaluation boundary explicit
-
-The supplied public labels are permitted for checking pipeline alignment and
-understanding label semantics. They must not train the model, tune parameters or
-select between variants. Hand-labelling or correcting any part of this supplied
-match is also prohibited. Private labels and external human-produced event data
-about this same match are unavailable for development under the rules.
-
-Labels from other games, and unsupervised or self-supervised methods, are allowed
-subject to the challenge's access and documentation requirements. For independent
-evaluation, split by complete games rather than neighbouring frames from the same
-game. Ensure those labels implement compatible possession and dead-ball semantics.
-
-Watching this match to understand observations is allowed. Turning an observation
-into a special rule for a particular timestamp is not a general algorithmic fix.
-
-The fixed comparison in this guide is a diagnostic of unchanged methods. It is
-not permission to repeatedly select variants against the public reference.
-
-Sources: [RULES.md](../docs/RULES.md#training-and-validation-data),
-[public-window guidance](../docs/EVALUATION.md#the-public-window-is-not-a-leaderboard).
-
-### 9.2 Prioritise observable mechanisms
-
-| Priority | Proposed work | Why it helps investigation | Verification |
-|---|---|---|---|
-| 1 | Add local evidence diagnostics: geometry, tags, activity, live/dead and chosen state | Reveal which signal or penalty drives a decision | Verify plots/tables against calculations on synthetic inputs; keep match-derived traces local |
-| 2 | Expand synthetic scenarios | Expose known gaps without using competition labels | Controlled short possession, change during occlusion, stationary live ball, moving players during stoppage, conflicting or incorrect restart tags |
-| 3 | Establish compatible data from other permitted matches | Enable model selection and claims about generalisation | Hold out complete matches; evaluate spells, boundaries and dead-ball together |
-| 4 | Improve evidence of actual control | Distinguish proximity from controlled reception | Test sustained proximity, relative motion and direction changes; handle unreliable track identities |
-| 5 | Improve stoppage and restart evidence | Prevent merging possessions across missed dead-ball intervals | Combine movement distribution, observation quality and restart signals; evaluate independent examples |
-| 6 | Investigate evidence-dependent switching or duration models | Preserve genuine short phases while resisting noisy touches | Compare on independent matches, including both false splits and missed phases |
-| 7 | Profile and optimise implementation | Reduce measured cost without obscuring semantics | Time parser/features/decoder/output separately; require identical predictions for implementation-only changes |
-
-An evidence diagnostic is the most useful immediate engineering addition. A
-single final label does not tell us whether geometry, a long tag, missing data or
-switching cost dominated. The diagnostic should expose model inputs and scores;
-it should not become a tool for hand-correcting this match's labels.
-
-For a future controlled experiment, record the hypothesis, code revision,
-configuration, independent dataset and input/output hashes before evaluating.
-Change one mechanism at a time. Measure phase precision and recall at every IoU,
-boundary errors, dead-ball errors and runtime. An ablation can isolate the effect
-of tags or activity, but use independent games for selecting the resulting model.
-
-Do not optimise toward "exactly 17 phases", a desired average duration, or the
-best score on the supplied five minutes. Matching a count can hide wrong teams,
-wrong timing and completely different phases.
-
-## 10. Commands and source map
-
-From the repository root, with the documented environment and required assets:
-
-```powershell
-# Synthetic correctness tests; no competition labels required.
-.\.venv\Scripts\python.exe -m unittest discover -s solution/tests -v
-
-# Generate the current algorithm's predictions.
-.\.venv\Scripts\python.exe -m solution.code.possession --team MesQueUnCode --output-dir solution/results
-
-# Regenerate both fixed methods, measure runtime and evaluate their quality.
-.\.venv\Scripts\python.exe -m solution.code.compare_algorithms --runs 3 --bootstrap 1000
-
-# Re-score saved comparison predictions after verifying their recorded checksums.
-.\.venv\Scripts\python.exe -m solution.code.compare_algorithms --quality-only --bootstrap 1000
-```
-
-The quality-only command needs a previous complete comparison. It does not
-regenerate predictions after source changes. For a fresh comparison use the full
-command. Evaluation is diagnostic, subject to the public-label restrictions above.
-
-Outputs of the comparison include:
-
-- `solution/reports/head-to-head/possession_quality.md`: readable phase-quality analysis.
-- `solution/reports/head-to-head/possession_quality.json`: exact metrics and CSV checksums.
-- `solution/reports/head-to-head/comparison.md`: combined quality/runtime comparison.
-- `solution/reports/head-to-head/runtime/timings.json`: individual timings and medians.
-- `solution/reports/head-to-head/evaluation/reports/`: unchanged official aggregate reports.
-
-Default generated artifacts and restricted match data are ignored by Git. Custom
-output locations may require their own exclusion. Do not publish match trajectories,
-frame-level extracts or other reconstructable restricted data.
-The [LLM rule in the FAQ](../docs/FAQ.md#L109) also prohibits sending competition data,
-videos, confidential content or their extracts to third-party hosted/cloud LLMs.
-Keep analysis of those assets local; this is a separate restriction from public
-redistribution.
-
-| Read this file | To understand |
-|---|---|
-| [CHALLENGE.md](../docs/CHALLENGE.md) | The football definition and expected output |
-| [DATA.md](../docs/DATA.md) | Input formats, missingness and timelines |
-| [possession/data.py](code/possession/data.py) | Loading, validation and compact features |
-| [possession/model.py](code/possession/model.py) | Evidence, movement fitting and temporal decoding |
-| [possession/__main__.py](code/possession/__main__.py) | Inference orchestration, CSV and manifest |
-| [starter/baseline.py](../starter/baseline.py) | Original nearest-player and smoothing method |
-| [evaluation/possession_metrics.py](../evaluation/possession_metrics.py) | Exact metric definitions |
-| [evaluation/run_evaluation.py](../evaluation/run_evaluation.py) | Scoring workflow and ranking order |
-| [compare_algorithms.py](code/compare_algorithms.py) | Fixed head-to-head test and reports |
-| [tests/test_possession.py](tests/test_possession.py) | Existing synthetic correctness checks |
-| [RULES.md](../docs/RULES.md) | Allowed data, labels and development constraints |
-
-### Reproduce the two teaching examples
+## 7. Worked examples
 
 This Python snippet uses only invented scores and labels. It neither loads nor
 modifies the supplied match. Run it from the repository root in the solution
@@ -793,7 +562,7 @@ Mean spellF1: 0.44
 Reference phases: 3; predicted: 7
 ```
 
-## 11. Glossary
+## 8. Glossary
 
 | Term | Meaning in this project |
 |---|---|

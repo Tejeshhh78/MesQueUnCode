@@ -1,24 +1,7 @@
 # MesQueUnCode
 
-Our implementation is in **[solution/](solution/README.md)**, following the shared
-team layout. The official challenge documentation is in **[docs/](docs/README.md)**.
-
-- [Run, test and compare our solution](solution/README.md)
-- [Detailed algorithm guide](solution/ALGORITHM_GUIDE.md)
-- [Quality improvement masterprompt](solution/QUALITY_IMPROVEMENT_PROMPT.md)
-- [Independent validation and measured candidate improvements](solution/INDEPENDENT_VALIDATION.md)
-- [Technical report](solution/TECHNICAL_REPORT.md)
-- [Development and verification history](solution/WORKLOG.md)
-
-From the repository root, using the solution environment:
-
-```powershell
-.\.venv\Scripts\python.exe -m solution.code.possession --team MesQueUnCode
-.\.venv\Scripts\python.exe -m solution.code.compare_algorithms --runs 3 --bootstrap 1000
-```
-
-The solution defaults to `solution/results/`; comparisons go to
-`solution/reports/head-to-head/`. Generated outputs are excluded from Git.
+Implementation, installation and test commands: **[solution/](solution/README.md)**.
+Official challenge documentation: **[docs/](docs/README.md)**.
 
 ## Official challenge starter
 
