@@ -5,6 +5,8 @@ team layout. The official challenge documentation is in **[docs/](docs/README.md
 
 - [Run, test and compare our solution](solution/README.md)
 - [Detailed algorithm guide](solution/ALGORITHM_GUIDE.md)
+- [Quality improvement masterprompt](solution/QUALITY_IMPROVEMENT_PROMPT.md)
+- [Independent validation and measured candidate improvements](solution/INDEPENDENT_VALIDATION.md)
 - [Technical report](solution/TECHNICAL_REPORT.md)
 - [Development and verification history](solution/WORKLOG.md)
 

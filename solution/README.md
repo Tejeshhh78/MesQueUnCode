@@ -6,12 +6,27 @@ temporal state decoder. No human training labels, model downloads, external
 services or GPU are required.
 
 **Verified:** a complete CSV with 199,319 rows, official format validation,
-16 synthetic tests and byte-identical regeneration. Initial public pipeline
+the synthetic regression suite and byte-identical incumbent regeneration. Initial public pipeline
 check: spellF1 **0.4444**, macroF1 **0.7362**. The public window contains only
 17 possession spells; private full-match quality is unknown.
 See the [technical report](TECHNICAL_REPORT.md) for details and limitations.
 For a step-by-step team explanation of the algorithm, scoring, measured weaknesses
 and development options, read the [algorithm guide](ALGORITHM_GUIDE.md).
+For a repository-specific engineering task with validation and rule constraints,
+use the [quality improvement masterprompt](QUALITY_IMPROVEMENT_PROMPT.md).
+For independent other-match evaluation, experimental profiles and evidence
+diagnostics, see [independent validation](INDEPENDENT_VALIDATION.md). Experimental
+profiles remain explicit; the public comparison is not a model-selection tool.
+
+**Independent result (28 October 2026):** responsive with team-switch cost 12
+improved mean spellF1 from **0.3547 to 0.3896** on two previously unused external
+matches. All predeclared gates passed; this is not evidence of the private
+competition score. The incumbent remains the default. Generate the supported
+candidate explicitly with:
+
+```powershell
+.\.venv\Scripts\python.exe -m solution.code.possession --profile responsive --team-switch-cost 12 --output-dir solution/reports/responsive-12
+```
 
 ## Run the solution
 
@@ -147,12 +162,17 @@ solution/
     possession/            inference package
     benchmark_runtime.py   full CLI timing comparison
     compare_algorithms.py  fixed quality and runtime comparison
+    independent_evaluation.py  quality evaluation on declared other matches
+    import_idsse.py        public other-match data adapter
+    control_experiment.py  fixed development selection and one held-out test
+  experiments/             predeclared experiment protocols
   tests/                   synthetic correctness tests
   requirements.txt         pinned solution dependencies
   results/                 generated submissions, manifests and report copies (ignored)
   reports/                 generated evaluations and comparisons (ignored)
   TECHNICAL_REPORT.md      submission-oriented method description
   ALGORITHM_GUIDE.md       detailed team explanation
+  INDEPENDENT_VALIDATION.md  data provenance and quality experiments
   WORKLOG.md               decisions and verification history
 ```
 

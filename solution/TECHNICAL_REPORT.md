@@ -1,6 +1,6 @@
 # MesQueUnCode – Technical Report
 
-More than a Hack 2027, Phase 1 · Updated: 26 October 2026
+More than a Hack 2027, Phase 1 · Updated: 28 October 2026
 
 ## Objective and approach
 
@@ -31,7 +31,10 @@ loader requires consecutive ATD frames starting at 1 and maps them to CSV frames
 starting at 0. Coordinates are converted to metres using the official pitch dimensions.
 
 **No human labels**, external datasets, private models or human-produced event
-data about this match are used. There is no supervised training. Only two
+data about this match are used by incumbent inference. Independent development
+now additionally uses public IDSSE reference labels from other matches, as
+documented in [INDEPENDENT_VALIDATION.md](INDEPENDENT_VALIDATION.md); they are
+never inputs to possession inference. There is no supervised training. Only two
 movement regimes are estimated by unsupervised EM from the collective speed in
 the supplied tracking. The faster component supplies movement evidence and is
 not output as a learned ground-truth class. This is not calibration against
@@ -40,8 +43,10 @@ possession labels. Synthetic scenarios are used only for software tests.
 The initial public pipeline check was performed with the official scorer after
 the method had been fixed. A subsequent head-to-head diagnostic regenerated and
 scored the same fixed solution alongside the preselected `baseline_smooth50`.
-Ground truth was never passed to inference or used for training, parameter
-selection or selecting among candidate methods.
+Competition ground truth was never passed to inference or used for training,
+parameter selection or selecting among candidate methods. The new independent
+development workflow keeps those restrictions and evaluates explicit experiments
+on other games, with separate development and reserved final-test matches.
 
 The videos are absent locally. Broadcast tracking and homographies were reviewed
 for suitability but were not included in inference: broadcast uses a separate,
@@ -158,6 +163,58 @@ Initial public pipeline check on 7,500 frames / 17 possession spells:
 These values are **not estimates of the private full-match score**. The wide
 interval prevents a reliable claim of superiority from this window. No model
 parameters were changed based on the score after this check.
+
+## Independent quality experiment on 28 October 2026
+
+The optional `responsive` profile uses the same evidence and decoder with only
+the H/A switch cost reduced from 20 to **12**. Minimum duration and stoppage
+penalties are unchanged. A predeclared grid of 4/8/12 was evaluated on two other
+development matches; 12 was the only candidate satisfying all per-match
+regression limits. It was then frozen and tested once on two reserved games.
+
+The external reference is the **Deutsche Fussball Liga (DFL)** IDSSE release,
+licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), from
+[Bassek, Rein, Weber and Memmert (2025), Scientific Data 12, 195](https://doi.org/10.1038/s41597-025-04505-y).
+The [versioned public dataset](https://doi.org/10.6084/m9.figshare.28196177.v1)
+contains native provider control and ball-status reference fields. We used
+J03WMX/J03WOH for development (283,181 source frames) and J03WN1/J03WOY for final
+evaluation (284,097 frames), all at 25 Hz. We did not annotate new labels or
+fit a supervised model. Reference fields never enter input construction;
+positions and speeds remain available during stoppages. No tactical tags were
+manufactured from the reference. Source URLs, hashes, provenance and the exact
+label mapping are recorded in [INDEPENDENT_VALIDATION.md](INDEPENDENT_VALIDATION.md).
+
+| Equal-match mean spellF1 | Incumbent | Responsive, cost 12 |
+|---|---:|---:|
+| Two development matches | 0.400188 | 0.417815 |
+| Two previously unused final matches | 0.354710 | 0.389586 |
+
+Both final games improve and pass the declared secondary limits. At IoU 0.5,
+matched possessions total 252 versus 305, but unmatched predictions also rise
+from 221 to 285. The method gains recall at a precision cost. Two held-out games
+do not establish statistical significance or the private competition score.
+Some games share Fortuna Duesseldorf; this is a match-disjoint, not team-disjoint
+split. Multicamera tracking is substantially cleaner than competition ATD.
+Single-pass inference timings are too variable for a speedup claim.
+
+The `reliable` observation-filter experiment produced identical predictions to
+the incumbent on its independent development pilot and was not selected.
+All **90** current synthetic regression, adapter, diagnostics and protocol tests
+pass. The selected configuration's final-game prediction hashes were reproduced
+after packaging, without opening reference labels or recomputing final metrics.
+The official evaluator and competition reference were not changed or used for
+variant selection. Detailed traces stay under ignored local output paths.
+
+The incumbent remains the default for compatibility and as the reproduction
+reference. To generate the independently supported candidate explicitly:
+
+```powershell
+.\.venv\Scripts\python.exe -m solution.code.possession --profile responsive --team-switch-cost 12 --output-dir solution/reports/responsive-12
+.\.venv\Scripts\python.exe evaluation/validate_submission.py solution/reports/responsive-12/MesQueUnCode.csv
+```
+
+The candidate is a separate artifact; improved competition quality is unverified.
+The final split is now consumed and must not be used for further tuning.
 
 ## Limitations and useful next steps
 

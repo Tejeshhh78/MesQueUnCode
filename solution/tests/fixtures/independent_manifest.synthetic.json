@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "dataset_id": "synthetic-contract-example",
+  "protocol": {
+    "id": "invented-contract-example-v1",
+    "declared_before_results": true,
+    "split_unit": "match",
+    "selection_rule": "No model selection: this invented fixture checks software contracts only."
+  },
+  "matches": [{
+    "match_id": "invented-match-one",
+    "group_id": "invented-physical-game-one",
+    "split": "development",
+    "evidence_type": "synthetic",
+    "fps": 25,
+    "n_frames": 16,
+    "pitch_m": [105, 68],
+    "teams": ["Home", "Away"],
+    "units": {
+      "positions": "normalised_pitch",
+      "distances": "metres",
+      "speeds": "metres_per_second"
+    },
+    "blocks": [{"period": 1, "start": 0, "stop": 16}],
+    "provenance": {
+      "source": "Independently invented software-contract fixture, not a football match.",
+      "license": "MIT synthetic test content",
+      "organiser_access": "Included with the source repository.",
+      "match_identity": "Invented physical game with generic team names.",
+      "competition_match_excluded": true,
+      "label_origin": "synthetic",
+      "label_author": "MesQueUnCode test authors",
+      "label_method": "Explicit invented labels, not observed competition scenes.",
+      "labelled_frames": 16,
+      "semantics_compatible": true,
+      "blocks_origin": "synthetic_periods",
+      "input_origin": "synthetic",
+      "target_labels_used_in_inputs": true
+    },
+    "inputs": {
+      "format": "inline_features",
+      "values": {
+        "ball": [[0.2,0.5,5],[0.202,0.5,5],[0.204,0.5,5],[0.206,0.5,5],[0.208,0.5,5],[0.21,0.5,5],[0.212,0.5,5],[0.214,0.5,5],[0.216,0.5,5],[0.218,0.5,5],[0.22,0.5,5],[0.222,0.5,5],[0.224,0.5,5],[0.226,0.5,5],[0.228,0.5,5],[0.23,0.5,5]],
+        "distance": [[0.5,8],[0.5,8],[0.5,8],[0.5,8],[0.5,8],[0.5,8],[0.5,8],[0.5,8],[8,0.5],[8,0.5],[8,0.5],[8,0.5],[8,0.5],[8,0.5],[8,0.5],[8,0.5]],
+        "player_speed": [[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3],[3,3]],
+        "mean_speed": [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
+        "fast_fraction": [0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5],
+        "player_count": [22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22]
+      }
+    },
+    "labels": {"values": ["H","H","H","H","H","H","H","H","A","A","A","A","A","A","A","A"]}
+  }]
+}

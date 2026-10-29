@@ -285,3 +285,114 @@ Verification completed:
   remain ignored by Git.
 
 The model, inference parameters and official scoring code were not changed.
+
+## Quality improvement masterprompt on 27 October 2026
+
+Reviewed `dev_VG` at `35c4dc6`, the current inference and comparison code, synthetic
+tests, official challenge/rule/evaluation/submission documents, asset availability
+and existing aggregate results. Added `QUALITY_IMPROVEMENT_PROMPT.md`, linked from
+both READMEs, as an executable engineering brief for a future development run.
+
+The prompt prioritises independent other-match validation, local evidence
+diagnostics and controlled experiments on observation reliability, ball control,
+stoppages, tags and temporal structure. It explicitly prevents public-GT-driven
+training, selection and rollback, and distinguishes competition restrictions from
+conservative project acceptance policies. It preserves an incumbent when real-match
+improvement cannot be established and requires honest reporting of that limitation.
+
+Checked all 24 source links, both README references, command entry-point paths and
+Markdown fences. This task changed documentation only; no inference, new model
+selection, public rescoring, commit or push was performed.
+
+## Execute independent quality development on 27–28 October 2026
+
+Executed the masterprompt on `dev_VG` from `35c4dc6`, preserving all existing
+uncommitted documentation. No branch change, commit, push, public competition
+rescoring or submission was performed. Official challenge/evaluation source and
+references were unchanged. Competition public labels were not used for
+candidate selection, rollback or parameter fitting.
+
+Frozen incumbent source and output are under
+`solution/reports/quality-development/incumbent-35c4dc6/`. The CSV was reproduced
+with diagnostics and again after all changes:
+SHA-256 `3ce21a4bf873fcfe7a04013408537d230e8a32d361ea18ec430d6e12c77bd43e`.
+
+Implemented optional aggregate diagnostics and an explicit, Git-ignore-checked
+local NPZ trace. Added independent-match evaluation using the unchanged official
+scorer, explicit provenance/units/25-Hz contracts, complete-match splits and
+separate input/reference channels. Review caught a period concatenation bug
+before real candidate evaluation: the scoring grid now inserts 51 ignored
+X frames only between metadata periods, preserving all original frames and
+within-period timing. This prevents halftime possession merging and cross-period
+transition matches. Inference remains on the source timeline.
+
+Researched lawful other-match data and selected the public DFL/IDSSE release
+by Bassek et al. (2025), CC BY 4.0. Imported four games at native 25 Hz with
+streaming XML processing, physical unit conversion and separate provider-reference
+CSVs. Downloads were verified against published MD5s; manifests record SHA-256s
+and provenance. Target-field mutation tests verify that reference changes cannot
+affect features or period construction. Attribution, source URLs and reproduction
+are in [INDEPENDENT_VALIDATION.md](INDEPENDENT_VALIDATION.md).
+
+Two protocols were written before their candidate evaluations and subsequently
+copied byte-identically into tracked `solution/experiments/` for reproduction:
+
+1. **motion-reliability-001:** isolated ball jumps rejected using the incumbent's
+   45 m/s plausibility bound. A synthetic failure improves, but J03WMX pilot
+   predictions are identical to incumbent: spellF1 0.374570, macroF1 0.856095.
+   No measured natural-match benefit; profile remains experimental.
+2. **control-switch-cost-002:** evidence, minimum duration and stoppage costs
+   retained; only H/A switch costs 4/8/12 compared with 20. Development matches
+   J03WMX/J03WOH; final J03WN1/J03WOY reserved before candidate scores. Cost 4
+   failed primary/secondary gates. Cost 8 had the best primary development mean
+   but failed the per-match macroF1 limit. Cost **12** alone passed all gates:
+   development mean 0.400188 -> 0.417815. Frozen cost 12 then passed all gates
+   on the once-consumed final set: **0.354710 -> 0.389586**, both games improving.
+
+The final improvement is +0.034876 absolute, approximately +9.83% relative.
+At IoU 0.5, correct matches increase from 252 to 305, while unmatched predictions
+rise from 221 to 285: a precision/recall trade-off. Final macroF1 changes
+(+0.000758/-0.002357) remain within the declared limit. Single-pass runtime
+ratios are noisy (1.467/0.936); no speedup claim is made. Full metrics and hashes
+remain in ignored `control-switch-cost-002/` and `control-switch-cost-002-final/`.
+
+The driver records source/manifest/protocol/configuration hashes and checks
+regression limits per match. Shared dataset markers prevent an accidental
+second grid or final run through another output directory. These safeguards
+do not prove independence or protect against tampered provenance.
+
+**Decision:** expose responsive cost 12 as the independently supported candidate,
+while retaining incumbent as CLI default and exact reproduction reference.
+After final testing, changed only the responsive convenience default from 8 to
+the already selected 12. Evaluated sources are archived in `evaluated-source/`
+under the final report. Both profiles' final-game prediction hashes were then
+reproduced exactly without opening reference labels or recomputing scores.
+No final-result-driven retuning occurred.
+
+Verification completed:
+
+- All **90 tests passed**, including original decoder/data checks, tracing,
+  both experiments, independent adapters and selection/final safeguards.
+  No tests were skipped.
+- `pip check`: no broken requirements; no new runtime dependencies.
+- Two full competition-data candidate runs (explicit cost 12 and its matching
+  profile default) produced identical 199,319-row CSVs, SHA-256
+  `368f50cd5d6d826b97c80e1d492dd474392429ed1430ce60ead243c62d1ebea2`.
+- The candidate passes the unchanged official format validator. Full CLI times
+  were 17.42 s and 13.11 s; incumbent recheck 10.25 s. These are reproduction
+  observations, not an alternating controlled benchmark or speed guarantee.
+- Optional traces and downloaded/generated artifacts remain ignored by Git.
+- Final local audit confirms half-boundary/X coverage, matching manifest source
+  hashes and 106 valid local documentation links; `git diff --check` is clean.
+- Updated README, technical report, guide scope and independent-validation
+  document. Preserved the masterprompt as the historical instruction.
+
+**Limits and next step:** two final games cannot establish statistical
+significance or the private competition score. External tracking is cleaner
+than competition ATD, and development/final games share Fortuna Duesseldorf:
+match-disjoint, not team-disjoint evidence. Do not retune on the consumed final
+matches. Further selection requires a predeclared hypothesis and new held-out
+games with inspectable control/stoppage labels, preferably from an observation
+domain closer to the supplied tracking. Do not use the public competition window
+as a substitute. The separate candidate is ready for review; publishing and
+submission remain unperformed.

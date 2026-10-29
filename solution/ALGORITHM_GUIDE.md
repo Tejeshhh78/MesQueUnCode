@@ -1,6 +1,6 @@
 # Understanding our possession algorithm
 
-Team learning and development guide · Updated 27 October 2026
+Team learning and development guide · Updated 28 October 2026
 
 This guide explains the algorithm at commit `b5eac8b` (unchanged by the
 27 October move into `solution/code/`), the official scoring
@@ -9,6 +9,13 @@ New comparison runs default to `solution/reports/head-to-head/`. It is a
 longer companion to the submission-oriented [technical report](TECHNICAL_REPORT.md).
 Local generated reports are ignored by Git; their aggregate findings are included
 below so this explanation remains useful in a fresh clone.
+
+The explanation below describes the **incumbent**. Optional `reliable` and
+`responsive` profiles are independent development experiments: respectively a
+ball-position consistency filter and a reduced team-switch penalty. They do not
+silently replace the incumbent. The new diagnostics, other-match data adapter,
+validation protocol and experiment findings are documented in
+[INDEPENDENT_VALIDATION.md](INDEPENDENT_VALIDATION.md).
 
 Our method combines **evidence about ball control**, **evidence about whether play
 is live**, and **an optimiser that chooses a consistent sequence of states**.
@@ -192,8 +199,8 @@ Ball speed is estimated from positions on either side of a frame. Values above
 45 m/s are discarded as unreliable. Several movement signals are averaged in
 centred windows, mostly around one second. All such windows stay within a half.
 
-Sources: [`fill_short_gaps`](code/possession/model.py#L46),
-[`emissions`](code/possession/model.py#L164).
+Sources: [`fill_short_gaps`](code/possession/model.py),
+[`emissions`](code/possession/model.py).
 
 ### 4.3 Estimate which team is geometrically favoured
 
@@ -222,7 +229,7 @@ passes nearby. Both team distances must be available; otherwise geometry is neut
 **Limitation:** proximity and speed do not establish contact or control. Ball
 height, a player's body orientation and actual foot/head contact are not observed.
 
-Source: [`emissions`, geometry calculation](code/possession/model.py#L193).
+Source: [`emissions`, geometry calculation](code/possession/model.py).
 
 ### 4.4 Add automatic tactical evidence
 
@@ -248,7 +255,7 @@ Tags can bridge ball occlusions. Incorrect long tags can also favour an incorrec
 team for many consecutive frames. The multiplier 1.25 is a fixed modelling
 assumption, not a value established as optimal by the public evaluation.
 
-Source: [`tagging_evidence`](code/possession/model.py#L113).
+Source: [`tagging_evidence`](code/possession/model.py).
 
 ### 4.5 Estimate whether the ball is in play
 
@@ -301,9 +308,9 @@ goalkeeper holding the ball, a slow live build-up, or running players after a
 stoppage are plausible failure scenarios. These examples are not claims about
 specific frames in the supplied match.
 
-Sources: [`activity_evidence`](code/possession/model.py#L60),
-[`tagging_evidence`](code/possession/model.py#L113),
-[`alive_score` implementation](code/possession/model.py#L207).
+Sources: [`activity_evidence`](code/possession/model.py),
+[`tagging_evidence`](code/possession/model.py),
+[`alive_score` implementation](code/possession/model.py).
 
 ### 4.6 Convert evidence to three scores
 
@@ -327,7 +334,7 @@ They support comparisons and temporal optimisation. They cannot be reported as
 "70% confidence that H owns the ball". Normalising them would not establish
 empirical calibration either.
 
-Source: [`emissions`, final scores](code/possession/model.py#L210).
+Source: [`emissions`, final scores](code/possession/model.py).
 
 ## 5. How the temporal decoder decides
 
@@ -363,8 +370,8 @@ we do not observe the surrounding part of that run.
 Half boundaries reset decoding. Outside the published halves the output is `X`.
 Inside them the current model always selects `H`, `A` or `D`; it does not abstain.
 
-Sources: [`Config`](code/possession/model.py#L16), [`decode`](code/possession/model.py#L219),
-[`predict`](code/possession/model.py#L283).
+Sources: [`Config`](code/possession/model.py), [`decode`](code/possession/model.py),
+[`predict`](code/possession/model.py).
 
 ### 5.2 Why this can suppress both false touches and true short phases
 

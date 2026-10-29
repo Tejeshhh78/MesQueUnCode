@@ -1,7 +1,7 @@
 """Label-independent evidence and exact temporal state inference.
 
-Physical scales and regularisation were fixed before the public pipeline check.
-They were not trained on this match.
+Incumbent scales and regularisation were fixed before the public pipeline check.
+Explicit experiments use independent other-match validation, never this match's labels.
 """
 
 from dataclasses import asdict, dataclass
@@ -161,8 +161,59 @@ def tagging_evidence(events, names, n, fps, ball_speed, collective_speed):
     return support[:, 0] - support[:, 1], live - dead + restart_live, unknown_teams
 
 
-def emissions(features, events, blocks, pitch, fps, config=Config()):
+PROFILES = ("incumbent", "reliable", "responsive")
+TRACE_FIELDS = ("geometry", "tag_team", "team", "activity", "moving", "missing",
+                "stationary", "slow", "outside", "status_tags", "alive",
+                "ball_observed", "ball_rejected")
+
+
+def profile_config(profile):
+    """Explicit experimental defaults; caller-supplied configurations take precedence."""
+    if profile not in PROFILES:
+        raise ValueError(f"Unknown model profile: {profile}")
+    # Cost 12 was selected on independent development games and then evaluated
+    # unchanged on two reserved matches (control-switch-cost-002).
+    return Config(team_switch_cost=12.0) if profile == "responsive" else Config()
+
+
+def reliable_ball_mask(ball, observed, pitch, fps, max_speed=45.0):
+    """Reject isolated motion-inconsistent positions without inventing ball control.
+
+    Both adjacent steps must exceed the existing ball-speed plausibility bound,
+    while the neighbouring positions must connect plausibly over two frames.
+    Missing endpoints supply no evidence of a spike. At alternating implausible
+    positions, abstaining from geometry is preferable to inventing an owner.
+    This experimental filter never reads labels or tagging.
+    """
+    ball = np.asarray(ball, dtype=np.float64)
+    observed = np.asarray(observed, dtype=bool)
+    if ball.ndim != 2 or ball.shape != (len(observed), 2):
+        raise ValueError("Ball positions must have shape (frames, 2)")
+    if not np.isfinite(fps) or fps <= 0 or not np.isfinite(max_speed) or max_speed <= 0:
+        raise ValueError("Motion plausibility requires positive finite fps and maximum speed")
+    trusted = observed.copy()
+    if len(ball) < 3:
+        return trusted
+    xy = ball * np.asarray(pitch, dtype=np.float64)
+    step_speed = np.linalg.norm(np.diff(xy, axis=0), axis=1) * fps
+    bridge_speed = np.linalg.norm(xy[2:] - xy[:-2], axis=1) * fps / 2
+    complete = observed[:-2] & observed[1:-1] & observed[2:]
+    rejected = (complete & (step_speed[:-1] > max_speed) & (step_speed[1:] > max_speed)
+                & (bridge_speed <= max_speed))
+    trusted[1:-1] &= ~rejected
+    return trusted
+
+
+def emissions(features, events, blocks, pitch, fps, config=None, *, profile="incumbent", trace=None):
+    if profile not in PROFILES:
+        raise ValueError(f"Unknown model profile: {profile}")
+    if config is None:
+        config = profile_config(profile)
     n = len(features.ball)
+    if trace is not None:
+        trace.clear()
+        trace.update({name: np.full(n, np.nan) for name in TRACE_FIELDS})
+        trace["scores"] = np.full((n, 3), np.nan)
     fit_mask = np.zeros(n, dtype=bool)
     for _, start, stop in blocks:
         fit_mask[start:stop + 1] = True
@@ -175,6 +226,9 @@ def emissions(features, events, blocks, pitch, fps, config=Config()):
         length = stop - start
         ball = features.ball[start:stop, :2]
         sensible = np.isfinite(ball).all(axis=1) & (np.abs(ball - 0.5) <= 0.65).all(axis=1)
+        observed = sensible.copy()
+        if profile == "reliable":
+            sensible = reliable_ball_mask(ball, observed, pitch, fps)
         ball = np.where(sensible[:, None], ball, np.nan)
         xy = fill_short_gaps(ball, round(config.short_gap_s * fps)) * np.asarray(pitch)
         lag = max(1, fps // 8)
@@ -213,7 +267,14 @@ def emissions(features, events, blocks, pitch, fps, config=Config()):
         out[start:stop, 0] = log_alive + np.minimum(team, 0)
         out[start:stop, 1] = log_alive - np.maximum(team, 0)
         out[start:stop, 2] = log_dead
-    return out, {"activity_model": model_report, "unknown_team_tags": unknown}
+        if trace is not None:
+            values = (geometry, tags, team, activity[start:stop], moving, missing,
+                      stationary, slow, outside, status_tags, alive, observed, observed & ~sensible)
+            for name, value in zip(TRACE_FIELDS, values):
+                trace[name][start:stop] = value
+            trace["scores"][start:stop] = out[start:stop]
+    return out, {"profile": profile, "experimental": profile != "incumbent",
+                 "activity_model": model_report, "unknown_team_tags": unknown}
 
 
 def decode(scores, switch_cost, min_frames=1):
@@ -280,8 +341,10 @@ def decode(scores, switch_cost, min_frames=1):
     return path
 
 
-def predict(features, events, blocks, pitch, fps, config=Config()):
-    scores, report = emissions(features, events, blocks, pitch, fps, config)
+def predict(features, events, blocks, pitch, fps, config=None, *, profile="incumbent", trace=None):
+    if config is None:
+        config = profile_config(profile)
+    scores, report = emissions(features, events, blocks, pitch, fps, config, profile=profile, trace=trace)
     labels = np.full(len(features.ball), "X", dtype="<U1")
     cost = np.full((3, 3), config.stoppage_switch_cost)
     cost[0, 1] = cost[1, 0] = config.team_switch_cost
