@@ -362,13 +362,38 @@ def _manifest_payload(manifest_path):
     return path, payload, manifest
 
 
-def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, configs=None, bootstrap_n=0):
+def corrupt_observations(features, pitch, seed):
+    """Declared channel stress, not a reconstructed physical tracking scene.
+
+    Random 10-frame ball gaps and 0.10 m XY noise; distances are cleared on gaps
+    but otherwise unchanged. No reference labels or prediction-dependent masks.
+    """
+    result = copy.deepcopy(features)
+    rng = np.random.default_rng(seed)
+    n = len(result.ball)
+    starts = rng.random(n) < .002
+    missing = np.zeros(n, dtype=bool)
+    for lag in range(min(10, n)):
+        missing[lag:] |= starts[:n-lag]
+    result.ball[:, :2] += rng.normal(0, .10, (n, 2)) / np.asarray(pitch)
+    result.ball[missing] = np.nan
+    result.distance[missing] = np.nan
+    return result
+
+
+def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, configs=None, bootstrap_n=0,
+                      baseline="incumbent", diagnostics=False, timing_runs=0, stress_seed=None):
     """Return aggregate results only; labels are parsed after all profile predictions."""
     if purpose not in {"development", "final_test"}:
         raise ValueError("Choose development or final_test explicitly")
-    if not profiles or len(set(profiles)) != len(profiles) or "incumbent" not in profiles or any(p not in PROFILES for p in profiles):
-        raise ValueError("Profiles must be unique, include incumbent, and use supported model profiles")
+    if not profiles or len(set(profiles)) != len(profiles) or baseline not in profiles or any(p not in PROFILES for p in profiles):
+        raise ValueError("Profiles must be unique, include the baseline, and use supported model profiles")
     _integer(bootstrap_n, "bootstrap_n")
+    _integer(timing_runs, "timing_runs")
+    if stress_seed is not None:
+        _integer(stress_seed, "stress_seed")
+        if purpose != "development":
+            raise ValueError("Channel stress is development-only, never a substitute for final evidence")
     path, manifest_bytes, manifest = _manifest_payload(manifest_path)
     if manifest.get("schema_version") != 1:
         raise ValueError("Expected independent manifest schema_version 1")
@@ -415,11 +440,16 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
     for match, blocks, paths in records:
         fingerprints = {role: _file_record(file, protected_blobs, protected_hashes) for role, file in paths.items()}
         features, events = _load_inputs(match, paths)
-        predictions, seconds = {}, {}
+        if stress_seed is not None:
+            features = corrupt_observations(features, match["pitch_m"], stress_seed)
+        predictions, seconds, traces, repetitions = {}, {}, {}, {p: [] for p in profiles}
         for profile in profiles:
             inputs = copy.deepcopy(features)
             tags = copy.deepcopy(events)
             kwargs = {"config": configurations[profile]}
+            if diagnostics:
+                traces[profile] = {}
+                kwargs["trace"] = traces[profile]
             if "profile" in inspect.signature(predict).parameters:
                 kwargs["profile"] = profile
             elif profile != "incumbent":
@@ -431,6 +461,21 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
             if labels.shape != (match["n_frames"],) or not np.isin(labels, pm.LABELS).all():
                 raise ValueError("A profile returned invalid labels or frame coverage")
             predictions[profile] = labels.copy()
+        # Separate clean warm-up and alternating timing from trace collection.
+        if timing_runs:
+            for run in range(timing_runs + 1):
+                order = profiles if run % 2 else tuple(reversed(profiles))
+                for profile in order:
+                    inputs, tags = copy.deepcopy(features), copy.deepcopy(events)
+                    started = time.perf_counter()
+                    labels, _ = predict(inputs, tags, blocks, match["pitch_m"], 25,
+                                        config=configurations[profile], profile=profile)
+                    elapsed = time.perf_counter() - started
+                    if not np.array_equal(labels, predictions[profile]):
+                        raise ValueError("Repeated inference changed predictions")
+                    if run:
+                        repetitions[profile].append(elapsed)
+            seconds = {p: float(np.median(repetitions[p])) for p in profiles}
         # Target labels are not an argument to input construction or inference.
         reference = _read_labels(match, paths, blocks)
         score_reference, score_predictions, timebase = _score_grid(
@@ -446,9 +491,15 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
                      "metrics": scores, "predict_seconds": seconds,
                      "prediction_labels_ascii_sha256": {profile: hashlib.sha256("".join(labels.tolist()).encode("ascii")).hexdigest()
                                                         for profile, labels in predictions.items()},
-                     "paired_delta": {profile: {metric: scores[profile][metric] - scores["incumbent"][metric]
+                     "paired_delta": {profile: {metric: scores[profile][metric] - scores[baseline][metric]
                                                   for metric in METRICS}
-                                      for profile in profiles if profile != "incumbent"}})
+                                      for profile in profiles if profile != baseline}})
+        if timing_runs:
+            rows[-1]["predict_repetitions_seconds"] = repetitions
+        if diagnostics:
+            from .possession.diagnostics import reference_diagnostics
+            rows[-1]["diagnostics"] = {
+                p: reference_diagnostics(reference, predictions[p], traces[p], blocks) for p in profiles}
     strata = {}
     for evidence in sorted({row["evidence_type"] for row in rows}):
         subset = [row for row in rows if row["evidence_type"] == evidence]
@@ -456,7 +507,7 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
             profile: {metric: float(np.mean([row["metrics"][profile][metric] for row in subset])) for metric in METRICS}
             for profile in profiles}, "paired_mean_delta": {
             profile: {metric: float(np.mean([row["paired_delta"][profile][metric] for row in subset])) for metric in METRICS}
-            for profile in profiles if profile != "incumbent"}}
+            for profile in profiles if profile != baseline}}
     if path.read_bytes() != manifest_bytes:
         raise ValueError("Manifest changed during evaluation")
     if source_hashes != {file.relative_to(ROOT).as_posix(): hashlib.sha256(file.read_bytes()).hexdigest() for file in sources}:
@@ -466,6 +517,10 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
             "source_sha256": source_hashes,
             "environment": {"python": platform.python_version(), "numpy": np.__version__, "pandas": pd.__version__},
             "profiles": {profile: configurations[profile].to_dict() for profile in profiles},
+            "baseline": baseline, "timing_runs": timing_runs,
+            "observation_stress": None if stress_seed is None else {
+                "seed": stress_seed, "burst_start_probability": .002, "burst_frames": 10,
+                "xy_noise_sigma_m": .10, "scope": "feature-channel consistency; retained distances unperturbed"},
             "runtime_scope": "predict_only_excludes_loading_and_input_copying",
             "automatic_promotion": False, "provenance_is_self_declared": True,
             "guard_coverage": {"protected_git_blobs": len(protected_blobs), "known_competition_hashes": len(protected_hashes)},
@@ -482,6 +537,10 @@ def main(argv=None):
     mode.add_argument("--development", action="store_true")
     mode.add_argument("--final-test", action="store_true")
     parser.add_argument("--profiles", nargs="+", choices=PROFILES, default=list(DEFAULT_PROFILES))
+    parser.add_argument("--baseline", choices=PROFILES, default="incumbent")
+    parser.add_argument("--diagnostics", action="store_true")
+    parser.add_argument("--timing-runs", type=int, default=0)
+    parser.add_argument("--stress-seed", type=int, help="Development-only observation-channel corruption")
     parser.add_argument("--bootstrap", type=int, default=1000)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "solution/reports/independent")
     args = parser.parse_args(argv)
@@ -492,7 +551,9 @@ def main(argv=None):
         target = args.output_dir / f"{dataset_id}-{purpose}.json"
         if target.exists():
             raise ValueError("Report already exists; preserve it and use a different output directory")
-        report = evaluate_manifest(args.manifest, purpose=purpose, profiles=tuple(args.profiles), bootstrap_n=args.bootstrap)
+        report = evaluate_manifest(args.manifest, purpose=purpose, profiles=tuple(args.profiles), bootstrap_n=args.bootstrap,
+                                   baseline=args.baseline, diagnostics=args.diagnostics, timing_runs=args.timing_runs,
+                                   stress_seed=args.stress_seed)
         args.output_dir.mkdir(parents=True, exist_ok=True)
         # Preserve previous experiments and final-test records rather than silently overwriting.
         with target.open("x", encoding="utf-8", newline="\n") as handle:

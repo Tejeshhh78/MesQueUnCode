@@ -161,7 +161,7 @@ def tagging_evidence(events, names, n, fps, ball_speed, collective_speed):
     return support[:, 0] - support[:, 1], live - dead + restart_live, unknown_teams
 
 
-PROFILES = ("incumbent", "reliable", "responsive", "controlled")
+PROFILES = ("incumbent", "reliable", "responsive", "controlled", "adaptive", "contact")
 TRACE_FIELDS = ("geometry", "tag_team", "team", "activity", "moving", "missing",
                 "stationary", "slow", "outside", "status_tags", "alive",
                 "ball_observed", "ball_rejected")
@@ -173,10 +173,45 @@ def profile_config(profile):
         raise ValueError(f"Unknown model profile: {profile}")
     # Cost 12 was selected on independent development games and then evaluated
     # unchanged on two reserved matches (control-switch-cost-002).
-    return Config(team_switch_cost=12.0) if profile in ("responsive", "controlled") else Config()
+    return Config(team_switch_cost=12.0) if profile in ("responsive", "controlled", "adaptive", "contact") else Config()
 
 
-def controlled_geometry(distance, player_speed, ball_speed, valid, dead_like, fps, config):
+def ball_contact_strength(ball, observed, pitch, fps):
+    """Bounded local change in ball velocity, without filling missing observations.
+
+    This detects a possible ball action, not its owner or whether it was controlled.
+    All intermediate observations and step speeds must be plausible. Call within
+    a metadata period; no inferred player identity or relative player velocity.
+    """
+    ball = np.asarray(ball, dtype=float)
+    observed = np.asarray(observed, dtype=bool)
+    pitch = np.asarray(pitch, dtype=float)
+    if ball.shape != (len(observed), 2) or observed.ndim != 1:
+        raise ValueError("Expected ball (frames,2) and observed (frames,)")
+    if pitch.shape != (2,) or not np.isfinite(pitch).all() or np.any(pitch <= 0) or not np.isfinite(fps) or fps <= 0:
+        raise ValueError("Pitch dimensions and fps must be finite and positive")
+    n = len(ball)
+    result = np.zeros(n)
+    lag = max(1, round(0.12 * fps))
+    if n <= 2 * lag:
+        return result
+    xy = ball * pitch
+    known = observed & np.isfinite(xy).all(axis=1)
+    steps = np.linalg.norm(np.diff(xy, axis=0), axis=1) * fps
+    invalid_points = np.r_[0, np.cumsum(~known)]
+    invalid_steps = np.r_[0, np.cumsum(~np.isfinite(steps) | (steps > 45))]
+    idx = np.arange(lag, n - lag)
+    good = ((invalid_points[idx + lag + 1] - invalid_points[idx - lag] == 0)
+            & (invalid_steps[idx + lag] - invalid_steps[idx - lag] == 0))
+    before = (xy[idx] - xy[idx - lag]) * fps / lag
+    after = (xy[idx + lag] - xy[idx]) * fps / lag
+    change = np.linalg.norm(after - before, axis=1)
+    result[idx] = np.where(good, np.clip(np.nan_to_num((change - 3) / 7), 0, 1), 0)
+    return result
+
+
+def controlled_geometry(distance, player_speed, ball_speed, valid, dead_like, fps, config,
+                        *, contact_strength=None):
     """Compute bounded temporal-control geometry evidence within a single period block.
 
     Distinguishes sustained close ball control (including contested receptions)
@@ -210,6 +245,14 @@ def controlled_geometry(distance, player_speed, ball_speed, valid, dead_like, fp
     speed_gate = 1.0 - 0.85 * np.clip((excess_speed - 5.0) / 10.0, 0.0, 1.0)
     w_close = np.where(valid, close_reach * speed_gate, 0.0)
     g_inst = np.where(valid, raw_margin * w_close, 0.0)
+    if contact_strength is not None:
+        strength = np.asarray(contact_strength, dtype=float)
+        if strength.shape != (length,) or not np.isfinite(strength).all() or np.any((strength < 0) | (strength > 1)):
+            raise ValueError("Contact strength must be a finite [0,1] vector")
+        contact_weight = np.where(valid & ~dead_like, strength * np.exp(-((min_d / 1.2) ** 2)), 0)
+        contact_target = 2.5 * np.clip((eff_a - eff_h) / 0.6, -1, 1)
+        g_inst = (1 - contact_weight) * g_inst + contact_weight * contact_target
+        w_close = np.maximum(w_close, contact_weight)
 
     w = max(3, round(0.28 * fps))
     unit = np.sign(g_inst) * np.minimum(1.0, np.abs(g_inst) / 0.5)
@@ -337,11 +380,12 @@ def emissions(features, events, blocks, pitch, fps, config=None, *, profile="inc
                               | (ball[:, 1] < -0.008) | (ball[:, 1] > 1.008))
         distance = features.distance[start:stop]
         valid = np.isfinite(distance).all(axis=1) & sensible
-        if profile == "controlled":
+        if profile in ("controlled", "adaptive", "contact"):
             dead_like = outside | ((stationary * slow) > 0.5)
             geometry = controlled_geometry(
                 distance, features.player_speed[start:stop], ball_speed,
                 valid, dead_like, fps, config,
+                contact_strength=ball_contact_strength(ball, sensible, pitch, fps) if profile == "contact" else None,
             )
         else:
             near = np.nan_to_num(np.exp(-np.nan_to_num(np.min(distance, axis=1), nan=1e6) / config.control_radius_m))
@@ -375,17 +419,40 @@ def emissions(features, events, blocks, pitch, fps, config=None, *, profile="inc
                  "activity_model": model_report, "unknown_team_tags": unknown}
 
 
+def adaptive_switch_costs(scores, cost):
+    """Discount only entry to a team with strong current evidence over H/A/D.
+
+    This opt-in experiment uses uncalibrated score margins, never reference
+    labels. The destination-frame cost stays between one third and the original
+    H/A cost. Dead-ball transitions and the minimum dwell time are unchanged.
+    """
+    scores = np.asarray(scores, dtype=float)
+    cost = np.asarray(cost, dtype=float)
+    if scores.ndim != 2 or scores.shape[1] != 3 or not np.isfinite(scores).all():
+        raise ValueError("Expected finite scores with shape (frames, 3)")
+    if cost.shape != (3, 3) or not np.isfinite(cost).all() or np.any(cost < 0):
+        raise ValueError("Expected nonnegative finite 3-by-3 costs")
+    result = np.broadcast_to(cost, (len(scores), 3, 3)).copy()
+    for destination in (0, 1):
+        other = 1 - destination
+        margin = scores[:, destination] - np.maximum(scores[:, other], scores[:, 2])
+        support = np.clip((margin - 0.75) / 1.25, 0, 1)
+        result[:, other, destination] *= 1 - (2 / 3) * support
+    return result
+
+
 def decode(scores, switch_cost, min_frames=1):
     """Exact Viterbi path with a minimum dwell time and no window-induced latency.
 
     Each class has min_frames age states; only the last may be exited.
     The first/last state may be shorter at an observation boundary.
+    Costs may be static (3,3) or destination-frame-dependent (frames,3,3).
     """
     scores = np.asarray(scores, dtype=np.float64)
     cost = np.asarray(switch_cost, dtype=np.float64)
     if scores.ndim != 2 or scores.shape[1] != 3 or not np.isfinite(scores).all():
         raise ValueError("Decoder requires finite scores with shape (frames, 3)")
-    if cost.shape != (3, 3) or not np.isfinite(cost).all() or np.any(cost < 0):
+    if cost.shape not in ((3, 3), (len(scores), 3, 3)) or not np.isfinite(cost).all() or np.any(cost < 0):
         raise ValueError("Invalid switching costs")
     if not isinstance(min_frames, (int, np.integer)) or not 1 <= min_frames <= 80:
         raise ValueError("Minimum duration must be between 1 and 80 frames")
@@ -397,6 +464,7 @@ def decode(scores, switch_cost, min_frames=1):
     # Python float lists avoid millions of tiny NumPy calls here.
     columns = scores.T.tolist()
     penalties = cost.tolist()
+    dynamic = cost.ndim == 3
     previous = [[-float("inf")] * k for _ in range(3)]
     for team in range(3):
         previous[team][-1] = columns[team][0]  # allow a shorter first state
@@ -405,10 +473,11 @@ def decode(scores, switch_cost, min_frames=1):
     back = bytearray(n * 3)
     alternatives = ((1, 2), (0, 2), (0, 1))
     for frame in range(1, n):
+        local_penalties = penalties[frame] if dynamic else penalties
         current = []
         for team, (left, right) in enumerate(alternatives):
-            left_score = previous[left][-1] - penalties[left][team]
-            right_score = previous[right][-1] - penalties[right][team]
+            left_score = previous[left][-1] - local_penalties[left][team]
+            right_score = previous[right][-1] - local_penalties[right][team]
             # Match np.argmax: ties favour the smaller team index.
             source, enter = (left, left_score) if left_score >= right_score else (right, right_score)
             emission = columns[team][frame]
@@ -449,6 +518,8 @@ def predict(features, events, blocks, pitch, fps, config=None, *, profile="incum
     np.fill_diagonal(cost, 0)
     alphabet = np.array(["H", "A", "D"])
     for _, start, last in blocks:
-        labels[start:last + 1] = alphabet[decode(scores[start:last + 1], cost,
+        local_scores = scores[start:last + 1]
+        local_cost = adaptive_switch_costs(local_scores, cost) if profile == "adaptive" else cost
+        labels[start:last + 1] = alphabet[decode(local_scores, local_cost,
                                                  max(1, round(config.min_state_s * fps)))]
     return labels, report

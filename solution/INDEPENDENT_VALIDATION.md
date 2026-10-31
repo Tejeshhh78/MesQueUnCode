@@ -62,11 +62,43 @@ responsive profile on its development games only:
 .\.venv\Scripts\python.exe -m solution.code.independent_evaluation solution/reports/external/idsse-four-match-v1/manifest.json --development --profiles incumbent responsive --bootstrap 1000 --output-dir solution/reports/independent-development-check
 ```
 
-New experiments should instead compare their candidate against frozen responsive
-12. Extend the existing profile/configuration plumbing without changing the
-official scorer. The generic evaluator defaults to incumbent/reliable unless
-profiles are specified. Development evaluation does not open unselected final
-feature or label files. Always use a new output directory.
+New experiments compare against frozen controlled 12. The generic evaluator
+defaults to incumbent/reliable; select an explicit baseline and profiles for new
+work. Development evaluation does not open unselected final feature or label
+files. Diagnostics use references only after prediction. Reproduce the rejected
+adaptive experiment's development metrics in a fresh ignored directory:
+
+```powershell
+.\.venv\Scripts\python.exe -m solution.code.independent_evaluation solution/reports/external/idsse-four-match-v1/manifest.json --development --profiles controlled adaptive --baseline controlled --diagnostics --timing-runs 3 --bootstrap 0 --output-dir solution/reports/adaptive-reproduction
+```
+
+`--timing-runs 3` uses one separate warm-up and alternating measured runs with
+deterministic prediction checks. It excludes loading, copying and diagnostics.
+The one-shot `adaptive_experiment.py` driver preserves experiment 004's start
+marker, source snapshot and baseline hashes. Do not reset that marker. Its
+candidate failed development gates; no new final matches were evaluated or
+promoted. J03WR9 is reserved unopened; a second new match is still missing.
+
+Experiment 005 keeps `controlled` as baseline and evaluates `contact` without
+adaptive transition discounts. It improved both development games but missed
+the predeclared mean-gain gate; no final data was consumed. Reproduce natural
+and separately corrupted observations in distinct fresh directories:
+
+```powershell
+.\.venv\Scripts\python.exe -m solution.code.independent_evaluation solution/reports/external/idsse-four-match-v1/manifest.json --development --profiles controlled contact --baseline controlled --diagnostics --timing-runs 3 --bootstrap 0 --output-dir solution/reports/contact-reproduction
+.\.venv\Scripts\python.exe -m solution.code.independent_evaluation solution/reports/external/idsse-four-match-v1/manifest.json --development --profiles controlled contact --baseline controlled --stress-seed 505 --bootstrap 0 --output-dir solution/reports/contact-stress-reproduction
+```
+
+Stress masks depend only on seed 505 and source length. Coordinate noise and
+ball gaps leave retained team distances unchanged: this is explicitly a channel
+consistency experiment, not a physical tracking reconstruction or independent
+accuracy claim. Reference labels never enter corruption or prediction.
+
+Additional source review: [Metrica samples](https://github.com/metrica-sports/sample-data)
+provide synchronised tracking/events; [SoccerTrack v2](https://arxiv.org/abs/2508.01802v2)
+describes trajectories and actor-linked ball-action events. Compatible dense
+control/stoppage references and all required reuse terms were not established
+for a new final test; neither source was imported as gold possession labels.
 
 Inputs may be ATD, numeric NPZ or JSON features; inline arrays are synthetic only.
 The [synthetic manifest](tests/fixtures/independent_manifest.synthetic.json)

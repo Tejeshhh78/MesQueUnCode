@@ -27,10 +27,12 @@ Videos and broadcast tracking are not required.
 | `incumbent` | Original team solution; CLI default; H/A switch cost 20 |
 | `responsive` | Independently evaluated switch-cost candidate; H/A switch cost 12 |
 | `controlled` | Independently evaluated temporal-control evidence candidate; H/A switch cost 12 |
+| `adaptive` | Rejected development experiment: evidence-dependent H/A costs; keep `controlled` for use |
+| `contact` | Ball-action experiment: development gains below acceptance gate; not promoted |
 | `reliable` | Experimental isolated ball-position filter; no demonstrated natural-match gain |
 
 The original hackathon `baseline_smooth50` is a separate method under `starter/`.
-New development must compare against `controlled` (or `responsive`) with cost 12.
+New development must compare against `controlled` with cost 12.
 
 Outputs are `MesQueUnCode.csv`, `MesQueUnCode.manifest.json` and a technical
 Markdown document. The manifest records input/source/output hashes and the

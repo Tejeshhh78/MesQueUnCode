@@ -20,6 +20,19 @@ FIXTURE = Path(__file__).parent / "fixtures" / "independent_manifest.synthetic.j
 
 
 class IndependentValidationTests(unittest.TestCase):
+    def test_explicit_baseline_with_diagnostics_and_alternating_timings(self):
+        report = validation.evaluate_manifest(self.save(), purpose="development",
+            profiles=("controlled", "adaptive"), baseline="controlled", diagnostics=True, timing_runs=3)
+        row = report["matches"][0]
+        self.assertEqual(set(row["paired_delta"]), {"adaptive"})
+        self.assertAlmostEqual(row["paired_delta"]["adaptive"]["spell_f1_mean"],
+            row["metrics"]["adaptive"]["spell_f1_mean"]-row["metrics"]["controlled"]["spell_f1_mean"])
+        for profile in ("controlled", "adaptive"):
+            self.assertEqual(len(row["predict_repetitions_seconds"][profile]), 3)
+            self.assertIn("duration_bins_seconds", row["diagnostics"][profile])
+        with self.assertRaises(ValueError):
+            validation.evaluate_manifest(self.path,purpose="development",profiles=("controlled",),baseline="adaptive")
+
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)

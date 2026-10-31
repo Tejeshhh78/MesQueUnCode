@@ -223,6 +223,13 @@ Source: [`emissions`, geometry calculation](code/possession/model.py).
 
 ### 4.4 Add automatic tactical evidence
 
+The optional, unpromoted `contact` profile adds a ball-action cue before tagging:
+changes in ball velocity over 0.12 s on either side strengthen nearby-team
+geometry within its existing bounds. It requires complete plausible ball
+observations and leaves controlled's static decoder costs and live/dead evidence
+unchanged. A deflection may look identical to a controlled action; the cue does
+not establish control by itself. Measured results are in the technical report.
+
 Smart Tagging contains intervals such as build-up, progression, attacking
 transition, defensive transition and set pieces. These are automatic estimates,
 not correct possession labels supplied to us.
@@ -364,6 +371,13 @@ Sources: [`Config`](code/possession/model.py), [`decode`](code/possession/model.
 [`predict`](code/possession/model.py).
 
 ### 5.2 Why this can suppress both false touches and true short phases
+
+The optional `adaptive` experiment keeps controlled emissions and the eight-frame
+minimum, but discounts H/A entry costs from 12 towards 4 when the destination
+score exceeds both alternatives by 0.75 to 2 units. D transitions stay at 24.
+Costs belong to the destination frame and reset with each metadata period.
+This experiment failed the development acceptance gates; `controlled` remains
+recommended. See the technical report for measured gains and regressions.
 
 Consider an invented `H -> A -> H` excursion surrounded by clear home possession.
 The two team changes cost `20 + 20 = 40`. If the away alternative gains only 2

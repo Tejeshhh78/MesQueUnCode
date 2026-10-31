@@ -1,6 +1,6 @@
 # MesQueUnCode: technical report
 
-More than a Hack 2027, Phase 1. Current method and verification as of 29 October 2026.
+More than a Hack 2027, Phase 1. Current method and verification as of 31 October 2026.
 
 ## Method
 
@@ -121,6 +121,61 @@ The responsive and controlled convenience defaults use cost 12. Incumbent
 remains the CLI default for compatibility. Adapter and evaluation commands are in
 [INDEPENDENT_VALIDATION.md](INDEPENDENT_VALIDATION.md).
 
+Experiment [004](experiments/adaptive-transition-004.json) tested one isolated
+decoder change against controlled: H/A entry costs decrease from 12 to 4 when
+the destination evidence exceeds both other states by 0.75 to 2 score units.
+Controlled emissions, minimum duration and D costs remain identical. These
+margins are uncalibrated evidence, not possession probabilities.
+
+| Development match | Controlled spellF1 | Adaptive spellF1 | Predict runtime ratio |
+|---|---:|---:|---:|
+| J03WMX | 0.485399 | 0.497831 | 1.246 |
+| J03WOH | 0.528743 | 0.525513 | 1.238 |
+| Equal-match mean | 0.507071 | 0.511672 | — |
+
+The candidate was **rejected**: mean gain +0.004602 missed the predeclared +0.02
+gate and the second match regressed. At IoU 0.5, pooled TP/FP/FN changed from
+385/185/528 to 396/203/517; short-phase matches (<2 s) rose from 22/301 to 27/301.
+Additional recall did not justify the precision loss on the second match or
+roughly 24% extra prediction time. Timing uses three alternating runs after
+warm-up per profile, excluding input loading/copying and diagnostics.
+All other declared secondary gates passed. No new final data or competition
+reference was opened, no thresholds were retuned, and no adaptive competition
+file or whole-CLI timing was produced. Controlled remains the recommendation.
+The [machine-readable results](experiments/adaptive-transition-004.results.json)
+retain all official IoUs, paired metrics, timing repetitions and hashes.
+
+## Ball-action experiment
+
+Experiment [005](experiments/control-contact-005.json) added one bounded ball-action
+cue to controlled geometry, keeping static costs, tags and live/dead emissions
+unchanged. Before/after ball velocity over 0.12 s must change by 3..10 m/s in
+immediate player proximity. Every observation in the window must exist and each
+step must remain below 45 m/s. No player identity or relative velocity is inferred.
+A deflection can produce the same cue, so it is not proof of controlled possession.
+
+| Development match | Controlled spellF1 | Contact spellF1 | Predict runtime ratio |
+|---|---:|---:|---:|
+| J03WMX | 0.485399 | 0.498432 | 1.085 |
+| J03WOH | 0.528743 | 0.546686 | 1.114 |
+| Equal-match mean | 0.507071 | 0.522559 | — |
+
+The mean gain of +0.015488 is positive on both games but below the predeclared
++0.02 engineering gate. The candidate is **not promoted**; controlled remains
+recommended. At IoU 0.5, pooled TP/FP/FN changed from 385/185/528 to 401/194/512.
+Short-phase matches rose from 22/301 to 29/301; precision decreased slightly on
+each game. All secondary gates passed. Runtime uses three alternating measured
+predict-only runs after warm-up, not a whole-CLI comparison.
+
+A separately reported seed-505 stress test introduced 10-frame ball gaps and
+0.10 m coordinate noise. SpellF1 changed from 0.486313/0.524963 for controlled to
+0.497455/0.549043 for contact. Retained team distances were not recalculated:
+this is a feature-channel consistency test, not realistic reconstructed tracking
+or independent natural-match evidence. No final games or competition reference
+were opened, and no candidate competition output was generated.
+[Compact results](experiments/control-contact-005.results.json) preserve both
+conditions, all official IoUs, timing repetitions and provenance hashes.
+
 ## Public pipeline check and runtime
 
 This check used fixed methods, 7,500 public frames and 17 reference possessions.
@@ -146,7 +201,7 @@ in response to this check, including the incumbent's higher public score.
 
 ## Verification and reproduction
 
-All 99 tests passed on the recorded implementation, including exhaustive small
+All 115 tests passed on the recorded implementation, including exhaustive small
 Viterbi problems, input alignment, short control versus deflections, contested
 receptions with pass-flight retention, half resets, label/input separation,
 diagnostics invariance and evaluation protocol guards.
