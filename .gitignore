@@ -26,6 +26,10 @@ solution/results/*.csv
 solution/reports/
 solution/scoreboard.csv
 
+# Parsed-tracking cache written by solution/loaders.py. It is derived match data -- RULES.md
+# forbids publishing anything that reconstructs the tracking -- so it never leaves the machine.
+.cache/
+
 # -- gated data --------------------------------------------------------------------------------
 # data/ is committed empty, with only its README, so the folder participants are told to unpack
 # into actually exists in a fresh clone. Everything they put in it stays out of git.

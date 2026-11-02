@@ -12,5 +12,13 @@ This directory contains the challenge documentation, evaluation rules, and submi
 6. [FAQ](FAQ.md) - common questions
 7. [Overview](OVERVIEW.md) - competition context and schedule
 
+## Mes Que Un Code (our solution)
+
+8. [Architecture](ARCHITECTURE.md) - repository layout, data flow, frame alignment
+9. [Model](MODEL.md) - how the possession model works and the rules it implements
+10. [Experiments](EXPERIMENTS.md) - measured results and their limits
+11. [Website](WEBSITE.md) - running and editing the team site
+12. [Troubleshooting](TROUBLESHOOTING.md) - common errors
+
 The root [README](../README.md) contains the short project overview and commands that work from a
 fresh clone.

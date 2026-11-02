@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mes Que Un Code</title>
+  <meta name="description" content="Mes Que Un Code: frame-by-frame ball possession from automatic tracking, for More than a Hack 2027 — Phase 1.">
+  <meta name="theme-color" content="#0b2a1c">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f3b27'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23f4f1e8' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23f2c14e'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="#top" aria-label="Mes Que Un Code, back to top">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2"/>
+          <line x1="16" y1="3" x2="16" y2="29" stroke="currentColor" stroke-width="2"/>
+          <circle cx="16" cy="16" r="3" fill="var(--gold)"/>
+        </svg>
+        <span>Mes Que Un Code</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">
+        <span class="sr-only">Menu</span>
+        <span class="nav-toggle-bar" aria-hidden="true"></span>
+      </button>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#challenge">Challenge</a></li>
+        <li><a href="#labels">Labels</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#demo">Demo</a></li>
+        <li><a href="#metrics">Metrics</a></li>
+        <li><a href="#data">Data</a></li>
+        <li><a href="#team">Team</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <!-- Hero ------------------------------------------------------------------------------------>
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">More than a Hack 2027 · Phase 1 · Ball Possession</p>
+        <h1 id="hero-title">Mes Que Un Code</h1>
+        <p class="tagline">Twenty-two players, one ball, 199,319 frames.<br>
+          <strong>We read the geometry to find who is really in control.</strong></p>
+        <p class="lede">A possession model that thinks in spells, not frames: it reads automatic tracking,
+          tactical tagging and team shape, then decodes the match into whole possessions with a
+          three-state Viterbi decoder.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#demo">Try the live demo</a>
+          <a class="button ghost" href="https://github.com/Tejeshhh78/MesQueUnCode">View the code</a>
+        </div>
+      </div>
+      <figure class="hero-pitch">
+        <svg id="hero-svg" viewBox="0 0 1053 680" role="img" aria-labelledby="hero-svg-title hero-svg-desc">
+          <title id="hero-svg-title">Animated tactical board</title>
+          <desc id="hero-svg-desc">A football pitch seen from above. Home players in white and away players in gold move around; a halo marks the team our model believes has the ball.</desc>
+          <defs>
+            <pattern id="stripes" width="105.3" height="680" patternUnits="userSpaceOnUse">
+              <rect width="52.65" height="680" fill="var(--pitch-a)"/>
+              <rect x="52.65" width="52.65" height="680" fill="var(--pitch-b)"/>
+            </pattern>
+          </defs>
+          <rect width="1053" height="680" fill="url(#stripes)" rx="18"/>
+          <g class="lines" fill="none" stroke="var(--chalk)" stroke-width="3" opacity="0.8">
+            <rect x="20" y="20" width="1013" height="640"/>
+            <line x1="526.5" y1="20" x2="526.5" y2="660"/>
+            <circle cx="526.5" cy="340" r="91.5"/>
+            <rect x="20" y="138" width="165" height="404"/>
+            <rect x="868" y="138" width="165" height="404"/>
+            <rect x="20" y="248" width="55" height="184"/>
+            <rect x="978" y="248" width="55" height="184"/>
+            <circle cx="526.5" cy="340" r="4" fill="var(--chalk)"/>
+          </g>
+          <g id="hero-players"></g>
+          <circle id="hero-halo" r="26" fill="none" stroke="var(--gold)" stroke-width="3" opacity="0.9"/>
+          <circle id="hero-ball" r="7" fill="var(--chalk)" stroke="#0b2a1c" stroke-width="2"/>
+        </svg>
+        <figcaption>
+          <span class="chip" id="hero-state" aria-live="off">Model state: H</span>
+          Illustrative animation — not match data.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- Challenge ------------------------------------------------------------------------------->
+    <section class="section" id="challenge" aria-labelledby="challenge-title">
+      <div class="section-head">
+        <p class="eyebrow">The challenge</p>
+        <h2 id="challenge-title">For every frame of the match, say who has the ball.</h2>
+        <p>One LaLiga match — FC Barcelona vs Athletic Club — recorded by a fixed tactical camera.
+          The output is one label per video frame, scored against a private frame-by-frame ground truth.</p>
+      </div>
+
+      <div class="stat-grid" role="list">
+        <div class="stat" role="listitem"><span class="stat-value">199,319</span><span class="stat-label">frames to label, at 25 fps</span></div>
+        <div class="stat" role="listitem"><span class="stat-value">158,857</span><span class="stat-label">frames actually graded (two halves)</span></div>
+        <div class="stat" role="listitem"><span class="stat-value">41%</span><span class="stat-label">of graded frames with no ball position</span></div>
+        <div class="stat" role="listitem"><span class="stat-value">46</span><span class="stat-label">anonymous track slots for 22 players</span></div>
+      </div>
+
+      <figure class="match-strip">
+        <svg viewBox="0 0 1000 120" role="img" aria-labelledby="strip-title strip-desc">
+          <title id="strip-title">The tactical video timeline</title>
+          <desc id="strip-desc">Frames 0 to 11,184 before kick-off, ungraded. First half from 11,185 to 90,651, graded. Halftime 90,652 to 110,807, ungraded. Second half 110,808 to 190,197, graded, with the kick-off at 113,742. After the final whistle, ungraded.</desc>
+          <g font-size="15" font-family="inherit">
+            <rect x="0" y="34" width="56" height="44" fill="var(--muted-bg)"/>
+            <rect x="56" y="34" width="399" height="44" fill="var(--pitch-b)"/>
+            <rect x="455" y="34" width="101" height="44" fill="var(--muted-bg)"/>
+            <rect x="556" y="34" width="398" height="44" fill="var(--pitch-b)"/>
+            <rect x="556" y="34" width="15" height="44" fill="var(--dead)"/>
+            <rect x="954" y="34" width="46" height="44" fill="var(--muted-bg)"/>
+            <text x="255" y="62" text-anchor="middle" fill="var(--chalk)">1st half · graded</text>
+            <text x="755" y="62" text-anchor="middle" fill="var(--chalk)">2nd half · graded</text>
+            <text x="505" y="62" text-anchor="middle" fill="var(--ink-soft)">HT</text>
+            <text x="56" y="24" text-anchor="middle" fill="var(--ink-soft)">11,185</text>
+            <text x="455" y="24" text-anchor="middle" fill="var(--ink-soft)">90,651</text>
+            <text x="556" y="24" text-anchor="middle" fill="var(--ink-soft)">110,808</text>
+            <text x="954" y="24" text-anchor="middle" fill="var(--ink-soft)">190,197</text>
+            <text x="575" y="104" fill="var(--ink-soft)">▲ kick-off 113,742 — 2,934 graded frames of D before it</text>
+          </g>
+        </svg>
+      </figure>
+
+      <div class="two-col">
+        <article class="card">
+          <h3>Ranked on spellF1, not accuracy</h3>
+          <p>A possession is a maximal run of <code>H</code> or <code>A</code>. Predicted possessions are
+            matched one-to-one with true ones by temporal IoU, averaged over thresholds 0.3–0.7. One
+            flicker inside a long possession splits it in two: one hit lost, one false alarm gained.</p>
+        </article>
+        <article class="card">
+          <h3>Tactical vs broadcast</h3>
+          <p>Row <em>i</em> of the submission is frame <em>i</em> of the <strong>tactical</strong> video.
+            The broadcast feed has its own 164,488-frame timeline with cuts and replays and is not
+            synchronised — a file with ~164k rows indexed the wrong video.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Labels ---------------------------------------------------------------------------------->
+    <section class="section alt" id="labels" aria-labelledby="labels-title">
+      <div class="section-head">
+        <p class="eyebrow">The alphabet</p>
+        <h2 id="labels-title">Four labels, three states</h2>
+      </div>
+      <div class="label-grid">
+        <article class="label-card label-h">
+          <span class="label-letter" aria-hidden="true">H</span>
+          <h3>Home in possession</h3>
+          <p>Barcelona has controlled possession and the ball is alive. Loose balls stay with the last team that had it.</p>
+        </article>
+        <article class="label-card label-a">
+          <span class="label-letter" aria-hidden="true">A</span>
+          <h3>Away in possession</h3>
+          <p>Athletic Club has controlled possession. A deflection or a lost aerial duel is not a change.</p>
+        </article>
+        <article class="label-card label-d">
+          <span class="label-letter" aria-hidden="true">D</span>
+          <h3>Dead ball</h3>
+          <p>Out of play: throw-ins, corners, goal kicks, fouls, goals, before kick-off. Never anyone's possession.</p>
+        </article>
+        <article class="label-card label-x">
+          <span class="label-letter" aria-hidden="true">X</span>
+          <h3>No answer</h3>
+          <p>Abstain. Free on ungraded frames; under spellF1 it repeats your previous label. We write it only outside the halves.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- How it works ---------------------------------------------------------------------------->
+    <section class="section" id="how" aria-labelledby="how-title">
+      <div class="section-head">
+        <p class="eyebrow">How it works</p>
+        <h2 id="how-title">From tracking noise to whole possessions</h2>
+        <p>Five stages, numpy and pandas only, about two seconds for the full match once the tracking is cached.</p>
+      </div>
+
+      <figure class="pipeline">
+        <svg viewBox="0 0 1000 230" role="img" aria-labelledby="pipe-title pipe-desc">
+          <title id="pipe-title">Pipeline architecture</title>
+          <desc id="pipe-desc">Inputs — tracking, Smart Tagging and homography — feed a loader, then per-frame evidence for team control and dead ball, then a three-state Viterbi decoder, then spell clean-up, then a validated submission CSV.</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/>
+            </marker>
+          </defs>
+          <g font-family="inherit" font-size="14" fill="var(--chalk)">
+            <g class="pipe-node"><rect x="10" y="20" width="150" height="56" rx="10"/><text x="85" y="53" text-anchor="middle">Tracking (ATD)</text></g>
+            <g class="pipe-node"><rect x="10" y="88" width="150" height="56" rx="10"/><text x="85" y="121" text-anchor="middle">Smart Tagging</text></g>
+            <g class="pipe-node"><rect x="10" y="156" width="150" height="56" rx="10"/><text x="85" y="189" text-anchor="middle">Homography</text></g>
+            <g class="pipe-node strong"><rect x="215" y="88" width="140" height="56" rx="10"/><text x="285" y="113" text-anchor="middle">loaders.py</text><text x="285" y="132" text-anchor="middle" class="small">video-frame arrays</text></g>
+            <g class="pipe-node strong"><rect x="400" y="88" width="150" height="56" rx="10"/><text x="475" y="113" text-anchor="middle">features.py</text><text x="475" y="132" text-anchor="middle" class="small">team + dead evidence</text></g>
+            <g class="pipe-node strong"><rect x="595" y="88" width="160" height="56" rx="10"/><text x="675" y="113" text-anchor="middle">possession_model</text><text x="675" y="132" text-anchor="middle" class="small">Viterbi over H/A/D</text></g>
+            <g class="pipe-node strong"><rect x="800" y="88" width="190" height="56" rx="10"/><text x="895" y="113" text-anchor="middle">postprocess.py</text><text x="895" y="132" text-anchor="middle" class="small">spells → valid CSV</text></g>
+          </g>
+          <g stroke="var(--gold)" stroke-width="2.5" fill="none" marker-end="url(#arrow)">
+            <path d="M160,48 C190,48 190,108 213,110"/>
+            <path d="M160,116 L213,116"/>
+            <path d="M160,184 C190,184 190,124 213,122"/>
+            <path d="M355,116 L398,116"/>
+            <path d="M550,116 L593,116"/>
+            <path d="M755,116 L798,116"/>
+          </g>
+        </svg>
+      </figure>
+
+      <ol class="steps">
+        <li>
+          <h3>Align every source to the tactical video</h3>
+          <p>ATD <code>frame_id − 1</code>, Smart Tagging <code>round(seconds × 25)</code>, homography as-is. Graded halves come from <code>games.half_video_blocks</code>; the per-half IdFrame offsets never leak into the tracking join.</p>
+        </li>
+        <li>
+          <h3>Score who could be on the ball</h3>
+          <p>Nearest player per team with a Gaussian control kernel, discounted when the ball flies at pass speed. Short ball gaps are interpolated; long ones get zero evidence, so the current team is carried through.</p>
+        </li>
+        <li>
+          <h3>Score whether the ball is dead</h3>
+          <p>Ball past a line (and still out while unseen), walking players, a ball placed for a restart, set-piece tags — and every frame before a detected kick-off is forced to <code>D</code>.</p>
+        </li>
+        <li>
+          <h3>Decode spells, not frames</h3>
+          <p>A Viterbi decoder charges a price for every hand-over and every stoppage, so a change only happens when the new state's evidence pays for it. That is exact hysteresis.</p>
+        </li>
+        <li>
+          <h3>Clean up, write, validate</h3>
+          <p>Sub-second spells are absorbed, dead-ball blips inside one possession bridged, and the CSV is checked with the official validator before the run reports success.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- Demo ------------------------------------------------------------------------------------>
+    <section class="section alt" id="demo" aria-labelledby="demo-title">
+      <div class="section-head">
+        <p class="eyebrow">Interactive</p>
+        <h2 id="demo-title">Watch flicker turn into possessions</h2>
+        <p>A <strong>synthetic</strong> two-minute match generated in your browser — no match data involved.
+          The top row is the made-up truth; below it, the raw nearest-player guess, the majority-vote
+          baseline, and our decoder. Move the sliders and watch the possession counts.</p>
+      </div>
+
+      <div class="demo">
+        <div class="demo-controls">
+          <label for="ctl-visibility">Ball visible <output id="out-visibility" for="ctl-visibility">60%</output></label>
+          <input type="range" id="ctl-visibility" min="20" max="100" step="5" value="60">
+
+          <label for="ctl-window">Baseline vote window <output id="out-window" for="ctl-window">±50 frames</output></label>
+          <input type="range" id="ctl-window" min="0" max="150" step="5" value="50">
+
+          <label for="ctl-switch">Decoder hand-over cost <output id="out-switch" for="ctl-switch">4.0</output></label>
+          <input type="range" id="ctl-switch" min="0" max="15" step="0.5" value="4">
+
+          <div class="demo-buttons">
+            <button type="button" class="button primary" id="btn-new">New synthetic match</button>
+            <button type="button" class="button ghost" id="btn-play" aria-pressed="false">Play cursor</button>
+          </div>
+        </div>
+
+        <div class="demo-output">
+          <figure class="timeline">
+            <svg id="timeline-svg" viewBox="0 0 1000 250" role="img" aria-labelledby="tl-title tl-desc">
+              <title id="tl-title">Possession timelines for a synthetic match</title>
+              <desc id="tl-desc">Four horizontal bars over the same two minutes: truth, raw nearest player, majority vote baseline and the Viterbi decoder. Colour encodes the label for each frame.</desc>
+              <g id="timeline-rows"></g>
+            </svg>
+            <figcaption class="legend">
+              <span><i class="swatch sw-h"></i>H home</span>
+              <span><i class="swatch sw-a"></i>A away</span>
+              <span><i class="swatch sw-d"></i>D dead</span>
+            </figcaption>
+          </figure>
+          <table class="demo-table">
+            <caption class="sr-only">Possession counts and synthetic spellF1 per row</caption>
+            <thead><tr><th scope="col">Row</th><th scope="col">Possessions</th><th scope="col">Mean length</th><th scope="col">spellF1 vs synthetic truth</th></tr></thead>
+            <tbody id="demo-body"></tbody>
+          </table>
+          <p class="note" id="demo-live" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Metrics --------------------------------------------------------------------------------->
+    <section class="section" id="metrics" aria-labelledby="metrics-title">
+      <div class="section-head">
+        <p class="eyebrow">Measured, not promised</p>
+        <h2 id="metrics-title">Baseline vs our approach</h2>
+        <p>Every number below was measured locally with the official scorer, or is published by the
+          organisers. The full-match ranking metric needs the private ground truth, so for our system it reads
+          <strong>“Run locally with the supplied data”</strong>.</p>
+      </div>
+
+      <div class="two-col">
+        <figure class="card chart-card">
+          <figcaption><h3>Public 5-minute window — spellF1</h3>
+            <p class="note">17 possessions. Bars show the scorer's 5–95% bootstrap interval; they overlap, so this is a pipeline check, not a ranking.</p></figcaption>
+          <svg id="chart-public" viewBox="0 0 480 260" role="img" aria-labelledby="chart-public-title">
+            <title id="chart-public-title">spellF1 on the public window, with bootstrap intervals</title>
+          </svg>
+        </figure>
+        <figure class="card chart-card">
+          <figcaption><h3>Full match — possessions claimed</h3>
+            <p class="note">No labels needed: how many possessions each system reports over all 158,857 graded frames. Fewer, longer spells is what spellF1 rewards — up to a point.</p></figcaption>
+          <svg id="chart-poss" viewBox="0 0 480 260" role="img" aria-labelledby="chart-poss-title">
+            <title id="chart-poss-title">Number of possessions predicted over the full match</title>
+          </svg>
+        </figure>
+      </div>
+
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Metrics table, scrolls horizontally">
+        <table class="metrics-table">
+          <thead>
+            <tr>
+              <th scope="col">System</th>
+              <th scope="col">Public macroF1</th>
+              <th scope="col">Public spellF1</th>
+              <th scope="col">Public poss. <span class="th-sub">(truth 17)</span></th>
+              <th scope="col">Full-match spellF1</th>
+              <th scope="col">Full-match poss.</th>
+              <th scope="col">Mean poss.</th>
+              <th scope="col">D share</th>
+            </tr>
+          </thead>
+          <tbody id="metrics-body"></tbody>
+        </table>
+      </div>
+      <p class="note">Full-match spellF1 for the baselines is published in EVALUATION.md. Reproduce everything with
+        <code>python solution/experiments.py</code>.</p>
+    </section>
+
+    <!-- Data constraints ------------------------------------------------------------------------>
+    <section class="section alt" id="data" aria-labelledby="data-title">
+      <div class="section-head">
+        <p class="eyebrow">Playing by the rules</p>
+        <h2 id="data-title">Data constraints and gated assets</h2>
+      </div>
+      <div class="three-col">
+        <article class="card">
+          <h3>Gated match data</h3>
+          <p>Video, tracking, tagging and homography are licensed to enrolled teams only. They live in
+            <code>data/</code> or wherever <code>MTAH_DATA_DIR</code> points, and are gitignored. Without them the
+            pipeline stops with setup instructions; the scorer still runs on the public CSVs.</p>
+        </article>
+        <article class="card">
+          <h3>No hand labels, no tuning on truth</h3>
+          <p>Parameters come from football physics and <em>silver labels</em> produced by rules — e.g. “ball visibly
+            out of the pitch” — never from a person and never from the ground truth. The public 5 minutes check
+            the pipeline; they choose nothing.</p>
+        </article>
+        <article class="card">
+          <h3>Noisy by design</h3>
+          <p>No player identities, slots that swap and vanish, a ball missing on 41% of graded frames,
+            automatic tags with errors. Every feature is collective and every missing value is an explicit
+            “no information”.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Team ------------------------------------------------------------------------------------>
+    <section class="section" id="team" aria-labelledby="team-title">
+      <div class="section-head">
+        <p class="eyebrow">The squad</p>
+        <h2 id="team-title">Team</h2>
+        <p>Edit <code>website/team.js</code> to replace the placeholders.</p>
+      </div>
+      <ul class="team-grid" id="team-grid"></ul>
+    </section>
+
+    <!-- Links ----------------------------------------------------------------------------------->
+    <section class="section alt" id="links" aria-labelledby="links-title">
+      <div class="section-head">
+        <p class="eyebrow">Go deeper</p>
+        <h2 id="links-title">Code, rules and how to reproduce</h2>
+      </div>
+      <ul class="link-grid">
+        <li><a class="link-card" href="https://github.com/Tejeshhh78/MesQueUnCode"><strong>Repository</strong><span>Source, tests and documentation</span></a></li>
+        <li><a class="link-card" href="https://github.com/Tejeshhh78/MesQueUnCode/blob/main/docs/CHALLENGE.md"><strong>Challenge</strong><span>The task and the possession rules</span></a></li>
+        <li><a class="link-card" href="https://github.com/Tejeshhh78/MesQueUnCode/blob/main/docs/EVALUATION.md"><strong>Evaluation</strong><span>spellF1, macroF1 and how to score locally</span></a></li>
+        <li><a class="link-card" href="https://github.com/Tejeshhh78/MesQueUnCode/blob/main/docs/MODEL.md"><strong>Our model</strong><span>Evidence, decoder and every parameter</span></a></li>
+      </ul>
+      <pre class="code-block" aria-label="Commands to reproduce"><code>pip install -r requirements.txt
+python solution/run_solution.py
+python evaluation/validate_submission.py solution/results/mes_que_un_code.csv
+python evaluation/run_evaluation.py --results solution/results --out solution</code></pre>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Mes Que Un Code · More than a Hack 2027, Phase 1. Code under the repository's MIT licence; match data is not included and not redistributed.</p>
+    <p>Not affiliated with or endorsed by any club. Team names appear only as they do in the provided data.</p>
+  </footer>
+
+  <script src="team.js"></script>
+  <script src="metrics.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

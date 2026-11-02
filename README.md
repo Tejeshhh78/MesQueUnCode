@@ -47,7 +47,7 @@ switches, and the ball itself is invisible on 41% of the frames you are scored o
 
 It is deliberately **not** a tracking challenge. The tracking, tagging and homography are given to
 you so that nobody has to rebuild detection, re-identification and camera calibration before
-getting to the actual question. See [CHALLENGE.md](CHALLENGE.md).
+getting to the actual question. See [CHALLENGE.md](docs/CHALLENGE.md).
 
 ---
 
@@ -79,7 +79,7 @@ rank  submission                macroF1  spellF1   poss     dur
 Those four are **the same algorithm four times** — nearest tracked player to the ball, then a
 majority vote over a window. Only the window changes. `macroF1` barely moves; `spellF1` moves by a
 factor of eleven. That disagreement is the whole point of the metric, and
-[EVALUATION.md](EVALUATION.md) explains it.
+[EVALUATION.md](docs/EVALUATION.md) explains it.
 
 Once you have the data, regenerate them yourself and go further:
 
@@ -103,7 +103,7 @@ The match assets are released to enrolled participants who have accepted the ter
 3. You receive a download link.
 4. Unpack it into `./data`, or point `MTAH_DATA_DIR` at wherever you put it.
 
-Full description of every asset and how the frames line up: **[DATA.md](DATA.md)**.
+Full description of every asset and how the frames line up: **[DATA.md](docs/DATA.md)**.
 
 ---
 
@@ -111,13 +111,13 @@ Full description of every asset and how the frames line up: **[DATA.md](DATA.md)
 
 | | |
 |---|---|
-| **[CHALLENGE.md](CHALLENGE.md)** | the problem, the four labels, what counts as possession |
-| **[DATA.md](DATA.md)** | every provided asset, its format, and the frame alignment |
-| **[EVALUATION.md](EVALUATION.md)** | how you are scored, and why — read before optimising anything |
-| **[SUBMISSION.md](SUBMISSION.md)** | the file contract, the three deliverables, how to submit |
-| **[RULES.md](RULES.md)** | what you may and may not do |
-| **[FAQ.md](FAQ.md)** | |
-| **[OVERVIEW.md](OVERVIEW.md)** | the competition as a whole — context, why the 2027 format changed, the calendar |
+| **[CHALLENGE.md](docs/CHALLENGE.md)** | the problem, the four labels, what counts as possession |
+| **[DATA.md](docs/DATA.md)** | every provided asset, its format, and the frame alignment |
+| **[EVALUATION.md](docs/EVALUATION.md)** | how you are scored, and why — read before optimising anything |
+| **[SUBMISSION.md](docs/SUBMISSION.md)** | the file contract, the three deliverables, how to submit |
+| **[RULES.md](docs/RULES.md)** | what you may and may not do |
+| **[FAQ.md](docs/FAQ.md)** | |
+| **[OVERVIEW.md](docs/OVERVIEW.md)** | the competition as a whole — context, why the 2027 format changed, the calendar |
 
 
 ---
@@ -142,28 +142,66 @@ starter/
   02_tracking_atd.ipynb     guided tour of the tracking data, with plots
   03_first_submission.ipynb data in, scored submission out — start here
 data/                       unpack the downloaded match assets here. Empty in a fresh clone
+solution/                   Mes Que Un Code: our possession pipeline, experiments and tests
+website/                    our static team website
+docs/                       challenge documentation, plus our ARCHITECTURE/MODEL/EXPERIMENTS/...
 ```
 
 The scorer you run locally is the scorer that decides the competition. If it scores on your
 machine, it scores the same way on ours.
 
-## Workspace layout for comparing our solution
+## Mes Que Un Code — our solution
 
-The provided implementation and the reference outputs stay in their original locations so that
-the supplied commands continue to work:
+Our entry lives in [`solution/`](solution/), our team site in [`website/`](website/), and our
+documentation next to the challenge's in [`docs/`](docs/). The organisers' `starter/`,
+`evaluation/` and `games.py` are untouched, so every command above keeps working.
 
-| Area | Contents |
+**How it works, in one paragraph.** Every source is aligned to the tactical video. Per frame, the
+model scores *who could be playing the ball* (nearest player of each team, discounted for a ball in
+flight, plus weak Smart Tagging and self-supervised team-shape priors) and *whether the ball is
+dead* (ball past a line, walking players, a ball placed for a restart, set-piece tags, forced `D`
+before each kick-off). A three-state Viterbi decoder then turns that evidence into whole
+possessions, paying an explicit price for every hand-over and every stoppage — hysteresis done
+exactly, which is what `spellF1` rewards. Details: [docs/MODEL.md](docs/MODEL.md).
+
+```bash
+pip install -r requirements.txt                                  # numpy + pandas, nothing else
+
+# 1. data: unpack the gated bundle into ./data, or point MTAH_DATA_DIR at it
+# 2. generate the submission (≈10 s first run, ≈2 s once the tracking cache exists)
+python solution/run_solution.py                                  # -> solution/results/mes_que_un_code.csv
+python solution/run_solution.py --window 50 --output evaluation/results/solution.csv
+python solution/run_solution.py --set switch_cost=6 --print-params
+
+# 3. validate exactly as the official scorer does, then score on the public window
+python evaluation/validate_submission.py solution/results/mes_que_un_code.csv
+python evaluation/run_evaluation.py --results solution/results --out solution
+
+# 4. compare baselines, solution and ablations; run the tests
+python solution/experiments.py
+python -m unittest discover -s solution/tests -t .
+
+# 5. the team website
+cd website && python -m http.server 8000                         # http://localhost:8000
+```
+
+Without the gated data, `run_solution.py` exits with code 2 and a message naming every missing
+file; the scorer, the validator and all synthetic tests still run. The real-data tests are skipped
+with the reason.
+
+| doc | what |
 |---|---|
-| `starter/` | Provided loader code, notebooks, and the reference baseline |
-| `evaluation/` | Official scorer, public ground truth, committed baseline submissions, and reference reports |
-| `data/` | Downloaded match data used by both implementations |
-| `solution/code/` | Our implementation |
-| `solution/results/` | Our submission CSV files |
-| `solution/reports/` | Reports generated from our submissions |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | repository layout, data flow, frame alignment, tactical vs broadcast |
+| [docs/MODEL.md](docs/MODEL.md) | the model, every possession rule, parameters, limitations |
+| [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) | measured results and how far to trust them |
+| [docs/WEBSITE.md](docs/WEBSITE.md) | running, editing and deploying the team site |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | common errors and fixes |
 
-Use the solution-specific commands in [solution/README.md](solution/README.md) to score our work
-without overwriting the reference scoreboard. This arrangement deliberately adds a comparison
-area rather than moving `starter/` or `evaluation/`, because the supplied scripts use those paths.
+**Measured so far** (details and caveats in [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)): on the
+public 5 minutes, macroF1 0.834 and spellF1 0.471 against 0.621 / 0.326 for the published
+`baseline_smooth50` — but the spellF1 bootstrap intervals overlap, so that is a pipeline check, not
+evidence of a better rank. Over the full match the solution reports 202 possessions (baseline:
+594) with a 39.9% dead-ball share. Full-match spellF1 needs the private ground truth.
 
 ---
 
