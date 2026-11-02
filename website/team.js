@@ -1,54 +1,52 @@
 /*
- * Team members shown on the site. This is the ONLY file to edit to put your team on the page.
- *
- * Every entry with `placeholder: true` is rendered with a visible "Placeholder" badge so nobody
- * mistakes it for a real person. Replace the fields and delete the `placeholder` line.
+ * Team members shown on the site. This is the ONLY file to edit to change the team section.
  *
  *   name      shown as the card title
- *   role      one line under the name
- *   focus     what they worked on in this project (one or two sentences)
- *   position  a football position, purely for fun: "GK", "CB", "CM", "AM", "ST", ...
- *   links     optional [{ label, href }] -- GitHub, LinkedIn, personal site
+ *   github    GitHub login: the avatar is loaded from github.com/<login>.png (initials if it fails)
+ *   role      optional one line under the name
+ *   links     [{ label, href }] -- "GitHub" and "LinkedIn" get their icon automatically
+ *
+ * An entry with `placeholder: true` is rendered with a visible "Placeholder" badge.
  */
 window.MQUC_TEAM = [
   {
-    placeholder: true,
-    name: "Team member 1",
-    role: "Tracking & data pipeline",
-    focus: "Loader, frame alignment and the ATD cache.",
-    position: "GK",
-    links: [{ label: "Repository", href: "https://github.com/Tejeshhh78/MesQueUnCode" }]
+    name: "Tejesh Simkhada",
+    github: "Tejeshhh78",
+    links: [
+      { label: "GitHub", href: "https://github.com/Tejeshhh78" },
+      { label: "LinkedIn", href: "https://www.linkedin.com/in/tejesh-simkhada-b0396b288/" }
+    ]
   },
   {
-    placeholder: true,
-    name: "Team member 2",
-    role: "Possession model",
-    focus: "Evidence design, the Viterbi decoder and the spell clean-up.",
-    position: "CM",
-    links: []
+    name: "Valentin Gehrig",
+    github: "ValentinGehrig",
+    links: [
+      { label: "GitHub", href: "https://github.com/ValentinGehrig" },
+      { label: "LinkedIn", href: "https://www.linkedin.com/in/valentin-gehrig-b4090433a/" }
+    ]
   },
   {
-    placeholder: true,
-    name: "Team member 3",
-    role: "Evaluation & experiments",
-    focus: "Validation, ablations and keeping the public window honest.",
-    position: "CB",
-    links: []
+    name: "Leo Hofmann",
+    github: "InvictusAzazel",
+    links: [
+      { label: "GitHub", href: "https://github.com/InvictusAzazel" },
+      { label: "LinkedIn", href: "https://www.linkedin.com/in/leo-hofmann-14bb69374/" }
+    ]
   },
   {
-    placeholder: true,
-    name: "Team member 4",
-    role: "Football analysis",
-    focus: "Possession rules, dead-ball logic and Smart Tagging semantics.",
-    position: "AM",
-    links: []
+    name: "Mike Gisler",
+    github: "GamerNickGt",
+    links: [
+      { label: "GitHub", href: "https://github.com/GamerNickGt" },
+      { label: "LinkedIn", href: "https://www.linkedin.com/in/mike-gisler-746314445/" }
+    ]
   },
   {
-    placeholder: true,
-    name: "Team member 5",
-    role: "Product & presentation",
-    focus: "This website, the technical document and the pitch.",
-    position: "ST",
-    links: []
+    name: "Maxim Krüger",
+    github: "mxmkrg",
+    links: [
+      { label: "GitHub", href: "https://github.com/mxmkrg" },
+      { label: "LinkedIn", href: "https://www.linkedin.com/in/maxim-kr%C3%BCger-mxmkrg/" }
+    ]
   }
 ];
