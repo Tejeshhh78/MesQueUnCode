@@ -1,5 +1,7 @@
 # Understanding the possession algorithm
 
+The examples below describe the development history. For the current controlled model and run commands see [the technical report](TECHNICAL_REPORT.md) and [solution setup](README.md).
+
 This guide explains inputs, evidence, temporal decoding and official metrics.
 The formulas and examples describe the incumbent (H/A switching cost 20).
 The responsive profile uses the same method with cost 12. The controlled profile

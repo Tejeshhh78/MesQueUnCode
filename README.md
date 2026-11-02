@@ -1,5 +1,7 @@
 # MesQueUnCode
 
+The team model is **controlled**. Run `python -m solution.code.possession` from the repository root.
+
 Implementation, installation and test commands: **[solution/](solution/README.md)**.
 Official challenge documentation: **[docs/](docs/README.md)**.
 

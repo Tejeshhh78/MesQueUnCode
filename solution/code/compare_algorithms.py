@@ -36,7 +36,7 @@ def score_predictions(output, bootstrap, environment):
     return metrics, hashes
 
 
-def write_quality_summary(output, metrics, hashes, *, reused_predictions=False, profile="incumbent", config=None):
+def write_quality_summary(output, metrics, hashes, *, reused_predictions=False, profile="controlled", config=None):
     """Explain possession detection using the official aggregate matching results."""
     baseline, solution = metrics[BASELINE], metrics[SOLUTION]
     for key in ("ground_truth", "n_graded", "n_gt_spells", "spell_iou_headline", "bootstrap_n"):
@@ -223,7 +223,7 @@ def main():
     parser.add_argument("--quality-only", action="store_true",
                         help="Re-score existing, checksum-verified head-to-head CSVs; skip inference and runtime runs")
     parser.add_argument("--data-dir", type=Path, help="Alternative data bundle root for both methods")
-    parser.add_argument("--profile", choices=PROFILES, default="incumbent",
+    parser.add_argument("--profile", choices=PROFILES, default="controlled",
                         help="Fixed solution profile; public results must not select or tune this choice")
     parser.add_argument("--output-dir", type=Path, default=SOLUTION_ROOT / "reports" / "head-to-head")
     args = parser.parse_args()

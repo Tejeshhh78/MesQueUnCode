@@ -22,12 +22,9 @@ FIXTURE = Path(__file__).parent / "fixtures" / "independent_manifest.synthetic.j
 class IndependentValidationTests(unittest.TestCase):
     def test_explicit_baseline_with_diagnostics_and_alternating_timings(self):
         report = validation.evaluate_manifest(self.save(), purpose="development",
-            profiles=("controlled", "adaptive"), baseline="controlled", diagnostics=True, timing_runs=3)
+            profiles=("controlled",), baseline="controlled", diagnostics=True, timing_runs=3)
         row = report["matches"][0]
-        self.assertEqual(set(row["paired_delta"]), {"adaptive"})
-        self.assertAlmostEqual(row["paired_delta"]["adaptive"]["spell_f1_mean"],
-            row["metrics"]["adaptive"]["spell_f1_mean"]-row["metrics"]["controlled"]["spell_f1_mean"])
-        for profile in ("controlled", "adaptive"):
+        for profile in ("controlled",):
             self.assertEqual(len(row["predict_repetitions_seconds"][profile]), 3)
             self.assertIn("duration_bins_seconds", row["diagnostics"][profile])
         with self.assertRaises(ValueError):
@@ -49,7 +46,7 @@ class IndependentValidationTests(unittest.TestCase):
         return self.path
 
     def run_manifest(self, **kwargs):
-        return validation.evaluate_manifest(self.save(), purpose="development", profiles=("incumbent",), **kwargs)
+        return validation.evaluate_manifest(self.save(), purpose="development", profiles=("controlled",), **kwargs)
 
     def export_inputs(self, evidence="reference", file_format="features_npz"):
         """Invented files exercise declarations; they are not genuine reference data."""
@@ -76,8 +73,8 @@ class IndependentValidationTests(unittest.TestCase):
         self.assertEqual(report["strata"]["synthetic"]["matches"], 1)
         self.assertFalse(report["automatic_promotion"])
         self.assertTrue(report["provenance_is_self_declared"])
-        self.assertEqual(report["matches"][0]["metrics"]["incumbent"]["n_graded"], 16)
-        self.assertEqual(report["matches"][0]["metrics"]["incumbent"]["n_gt_spells"], 2)
+        self.assertEqual(report["matches"][0]["metrics"]["controlled"]["n_graded"], 16)
+        self.assertEqual(report["matches"][0]["metrics"]["controlled"]["n_gt_spells"], 2)
         self.assertTrue(all("confusion" not in metrics for metrics in report["matches"][0]["metrics"].values()))
 
     def test_profiles_get_independent_input_copies_and_official_paired_metrics(self):
@@ -87,23 +84,21 @@ class IndependentValidationTests(unittest.TestCase):
 
         def read_labels(*args):
             parsed.append(True)
-            self.assertEqual(len(seen), 2)
+            self.assertEqual(len(seen), 1)
             return original_reader(*args)
 
-        def predict(features, events, blocks, pitch, fps, config=None, *, profile="incumbent"):
+        def predict(features, events, blocks, pitch, fps, config=None, *, profile="controlled"):
             self.assertFalse(parsed)
             self.assertEqual(features.mean_speed[0], 3)
             features.mean_speed[0] = -100
             seen.append(profile)
-            return (np.full(16, "H") if profile == "incumbent" else labels.copy()), {}
+            return labels.copy(), {}
 
         with mock.patch.object(validation, "predict", new=predict), mock.patch.object(validation, "_read_labels", side_effect=read_labels):
             report = validation.evaluate_manifest(self.save(), purpose="development")
         row = report["matches"][0]
         official = pm.evaluate(pm.label_codes(labels), pm.label_codes(labels))
-        self.assertEqual(row["metrics"]["reliable"]["spell_f1_mean"], official["spell_f1_mean"])
-        self.assertEqual(row["paired_delta"]["reliable"]["spell_f1_mean"],
-                         row["metrics"]["reliable"]["spell_f1_mean"] - row["metrics"]["incumbent"]["spell_f1_mean"])
+        self.assertEqual(row["metrics"]["controlled"]["spell_f1_mean"], official["spell_f1_mean"])
         json.dumps(report, allow_nan=False)
 
     def test_adjacent_same_team_periods_remain_two_possessions(self):
@@ -117,10 +112,10 @@ class IndependentValidationTests(unittest.TestCase):
         with mock.patch.object(validation, "predict", new=predict):
             report = self.run_manifest()
         row = report["matches"][0]
-        self.assertEqual(row["metrics"]["incumbent"]["n_gt_spells"], 2)
-        self.assertEqual(row["metrics"]["incumbent"]["n_pred_spells"], 2)
-        self.assertEqual(row["metrics"]["incumbent"]["transitions"]["25"]["n_gt"], 0)
-        self.assertEqual(row["metrics"]["incumbent"]["spell_f1_mean"], 1)
+        self.assertEqual(row["metrics"]["controlled"]["n_gt_spells"], 2)
+        self.assertEqual(row["metrics"]["controlled"]["n_pred_spells"], 2)
+        self.assertEqual(row["metrics"]["controlled"]["transitions"]["25"]["n_gt"], 0)
+        self.assertEqual(row["metrics"]["controlled"]["spell_f1_mean"], 1)
         self.assertEqual(row["evaluation_timebase"]["source_frames"], 16)
         self.assertEqual(row["evaluation_timebase"]["score_grid_frames"], 67)
 
@@ -129,8 +124,8 @@ class IndependentValidationTests(unittest.TestCase):
         prediction = np.r_[np.full(62, pm.H), np.full(58, pm.A)]
         # Without period separation, the near-boundary transitions falsely match.
         self.assertEqual(pm.evaluate(reference, prediction)["transitions"][25]["n_matched"], 1)
-        gt, predictions, _ = validation._score_grid(reference, {"incumbent": prediction}, [(1, 0, 59), (2, 60, 119)])
-        result = pm.evaluate(gt, predictions["incumbent"])
+        gt, predictions, _ = validation._score_grid(reference, {"controlled": prediction}, [(1, 0, 59), (2, 60, 119)])
+        result = pm.evaluate(gt, predictions["controlled"])
         self.assertEqual(result["transitions"][25]["n_gt"], 1)
         self.assertEqual(result["transitions"][25]["n_pred"], 1)
         self.assertEqual(result["transitions"][25]["n_matched"], 0)
@@ -140,15 +135,15 @@ class IndependentValidationTests(unittest.TestCase):
         reference = np.r_[np.full(30, pm.H), np.full(30, pm.A), np.full(30, pm.A), np.full(30, pm.H)]
         prediction = np.r_[np.full(32, pm.H), np.full(28, pm.A), np.full(28, pm.A), np.full(32, pm.H)]
         reference[10:14] = pm.X
-        gt, predictions, timebase = validation._score_grid(reference, {"incumbent": prediction}, [(1, 0, 59), (2, 60, 119)])
+        gt, predictions, timebase = validation._score_grid(reference, {"controlled": prediction}, [(1, 0, 59), (2, 60, 119)])
         np.testing.assert_array_equal(gt[:60], reference[:60])
         np.testing.assert_array_equal(gt[111:], reference[60:])
-        np.testing.assert_array_equal(predictions["incumbent"][:60], prediction[:60])
-        np.testing.assert_array_equal(predictions["incumbent"][111:], prediction[60:])
+        np.testing.assert_array_equal(predictions["controlled"][:60], prediction[:60])
+        np.testing.assert_array_equal(predictions["controlled"][111:], prediction[60:])
         self.assertTrue(np.all(gt[60:111] == pm.X))
         self.assertEqual(timebase["inserted_ignored_frames"], 51)
         original = pm.evaluate(reference, prediction)
-        expanded = pm.evaluate(gt, predictions["incumbent"])
+        expanded = pm.evaluate(gt, predictions["controlled"])
         self.assertEqual(expanded["n_graded"], original["n_graded"])
         self.assertEqual(expanded["transitions"][25]["n_matched"], 2)
         self.assertEqual(expanded["transitions"][25]["mean_latency"], 0)
@@ -227,10 +222,10 @@ class IndependentValidationTests(unittest.TestCase):
 
         with mock.patch.object(validation, "predict", new=predict):
             report = self.run_manifest()
-        metrics = report["matches"][0]["metrics"]["incumbent"]
+        metrics = report["matches"][0]["metrics"]["controlled"]
         self.assertFalse(metrics["share_defined"])
         self.assertIsNone(metrics["share_err"])
-        self.assertNotIn("share_err", report["strata"]["synthetic"]["equal_match_mean"]["incumbent"])
+        self.assertNotIn("share_err", report["strata"]["synthetic"]["equal_match_mean"]["controlled"])
 
     def test_renamed_known_competition_content_is_rejected_by_hash_guard(self):
         _, labels = self.export_inputs()
@@ -288,12 +283,12 @@ class IndependentValidationTests(unittest.TestCase):
     def test_final_test_requires_locked_protocol_and_reference_evidence(self):
         self.match["split"] = "final_test"
         with self.assertRaises(ValueError):
-            validation.evaluate_manifest(self.save(), purpose="final_test", profiles=("incumbent",))
+            validation.evaluate_manifest(self.save(), purpose="final_test", profiles=("controlled",))
         self.manifest["protocol"]["final_test_locked"] = True
         with self.assertRaises(ValueError):
-            validation.evaluate_manifest(self.save(), purpose="final_test", profiles=("incumbent",))
+            validation.evaluate_manifest(self.save(), purpose="final_test", profiles=("controlled",))
         self.export_inputs()
-        report = validation.evaluate_manifest(self.save(), purpose="final_test", profiles=("incumbent",))
+        report = validation.evaluate_manifest(self.save(), purpose="final_test", profiles=("controlled",))
         self.assertEqual(report["purpose"], "final_test")
         self.assertFalse(report["automatic_promotion"])
 
@@ -361,15 +356,15 @@ class IndependentValidationTests(unittest.TestCase):
 
     def test_cli_writes_aggregate_only_json(self):
         with contextlib.redirect_stdout(io.StringIO()):
-            status = validation.main([str(self.save()), "--development", "--profiles", "incumbent",
+            status = validation.main([str(self.save()), "--development", "--profiles", "controlled",
                                       "--bootstrap", "0", "--output-dir", str(self.root / "reports")])
         self.assertEqual(status, 0)
         report = json.loads((self.root / "reports/synthetic-contract-example-development.json").read_text(encoding="utf-8"))
         row = report["matches"][0]
         self.assertNotIn("labels", row)
         self.assertNotIn("features", row)
-        self.assertEqual(len(row["prediction_labels_ascii_sha256"]["incumbent"]), 64)
-        for transition in row["metrics"]["incumbent"]["transitions"].values():
+        self.assertEqual(len(row["prediction_labels_ascii_sha256"]["controlled"]), 64)
+        for transition in row["metrics"]["controlled"]["transitions"].values():
             self.assertNotIn("pairs", transition)
             self.assertNotIn("missed", transition)
             self.assertNotIn("spurious", transition)

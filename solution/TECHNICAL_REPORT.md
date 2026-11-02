@@ -1,6 +1,6 @@
 # MesQueUnCode: technical report
 
-More than a Hack 2027, Phase 1. Current method and verification as of 31 October 2026.
+More than a Hack 2027, Phase 1. Selected model: controlled with team-switch cost 12. Earlier experiments below document the selection.
 
 ## Method
 
@@ -14,9 +14,7 @@ and maps one-based ATD indexing to zero-based CSV frames. Distances use pitch
 metres. Track slots identify team membership, not stable player identities.
 
 Team evidence combines the nearest-player distance difference with bounded
-soft tactical support. In `incumbent` and `responsive`, geometry uses a 2.5 m
-distance scale, a 6 m distance decay and reduced support for fast loose balls.
-In the `controlled` profile, geometry uses a soft 0.6 m touch-reach margin, a
+soft tactical support. The controlled model uses a soft 0.6 m touch-reach margin, a
 1.8 m Gaussian close-control envelope, ball-minus-player excess-speed damping,
 multi-window 0.28 s directional persistence and a causal loose-ball retention
 state (2.5 s live decay, 0.35 s dead-ball decay) so pass flight retains the
@@ -34,7 +32,7 @@ interpolated for movement calculations.
 
 An exact offline Viterbi decoder selects the state sequence. Internal states
 last at least 0.32 s; boundary states may be shorter. Switching to/from D costs
-24. The incumbent H/A switch cost is 20; the responsive candidate uses 12.
+24. The H/A switch cost is 12.
 Weak transient evidence is discouraged from changing the owner, while stronger
 sustained evidence can establish control. These are imperfect control proxies,
 not a guarantee of distinguishing every deflection or short possession.
@@ -117,8 +115,7 @@ improved by +0.085453 and +0.117133, D recall changed by -0.002842 and -0.000293
 and median prediction runtime ratios were 1.013 and 1.015. `J03WPY` and `J03WQQ`
 are now consumed final tests and excluded from further design or selection.
 
-The responsive and controlled convenience defaults use cost 12. Incumbent
-remains the CLI default for compatibility. Adapter and evaluation commands are in
+The CLI now runs controlled with cost 12. Adapter and evaluation commands are in
 [INDEPENDENT_VALIDATION.md](INDEPENDENT_VALIDATION.md).
 
 Experiment [004](experiments/adaptive-transition-004.json) tested one isolated
@@ -221,7 +218,7 @@ From the repository root, with data in the official layout:
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r solution/requirements.txt
 .\.venv\Scripts\python.exe -m unittest discover -s solution/tests -v
-.\.venv\Scripts\python.exe -m solution.code.possession --profile controlled --team-switch-cost 12 --team MesQueUnCode --output-dir solution/reports/controlled-12
+.\.venv\Scripts\python.exe -m solution.code.possession --team MesQueUnCode --output-dir solution/reports/controlled-12
 .\.venv\Scripts\python.exe evaluation/validate_submission.py solution/reports/controlled-12/MesQueUnCode.csv
 ```
 

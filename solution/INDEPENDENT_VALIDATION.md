@@ -16,7 +16,7 @@ are in [TECHNICAL_REPORT.md](TECHNICAL_REPORT.md).
 Assign complete physical matches to training, development or final test before
 examining candidate scores. Repeated crops/views belong to the same group.
 Reserve new final games before development; never relabel consumed tests as unseen.
-The existing `control_experiment.py` and its ledgers belong to completed
+The historical control-cost driver and its ledgers belong to completed
 experiment 002. Preserve them. New research needs its own protocol and outputs.
 
 ## Download and import
@@ -53,86 +53,12 @@ tracks and preserves observations during dead ball. Periods come from metadata.
 BallStatus 0 -> D; status 1 with BallPossession 1/2 -> H/A; all other combinations
 remain X. These reference fields never determine features, missingness or tags.
 
-## Evaluate development data
+## Evaluate controlled
 
-For the already converted four-match dataset, compare incumbent with the fixed
-responsive profile on its development games only:
-
-```powershell
-.\.venv\Scripts\python.exe -m solution.code.independent_evaluation solution/reports/external/idsse-four-match-v1/manifest.json --development --profiles incumbent responsive --bootstrap 1000 --output-dir solution/reports/independent-development-check
-```
-
-New experiments compare against frozen controlled 12. The generic evaluator
-defaults to incumbent/reliable; select an explicit baseline and profiles for new
-work. Development evaluation does not open unselected final feature or label
-files. Diagnostics use references only after prediction. Reproduce the rejected
-adaptive experiment's development metrics in a fresh ignored directory:
+Run from the repository root after importing the external data:
 
 ```powershell
-.\.venv\Scripts\python.exe -m solution.code.independent_evaluation solution/reports/external/idsse-four-match-v1/manifest.json --development --profiles controlled adaptive --baseline controlled --diagnostics --timing-runs 3 --bootstrap 0 --output-dir solution/reports/adaptive-reproduction
+python -m solution.code.independent_evaluation solution/reports/external/idsse-four-match-v1/manifest.json --development --diagnostics --output-dir solution/reports/controlled-development-check
 ```
 
-`--timing-runs 3` uses one separate warm-up and alternating measured runs with
-deterministic prediction checks. It excludes loading, copying and diagnostics.
-The one-shot `adaptive_experiment.py` driver preserves experiment 004's start
-marker, source snapshot and baseline hashes. Do not reset that marker. Its
-candidate failed development gates; no new final matches were evaluated or
-promoted. J03WR9 is reserved unopened; a second new match is still missing.
-
-Experiment 005 keeps `controlled` as baseline and evaluates `contact` without
-adaptive transition discounts. It improved both development games but missed
-the predeclared mean-gain gate; no final data was consumed. Reproduce natural
-and separately corrupted observations in distinct fresh directories:
-
-```powershell
-.\.venv\Scripts\python.exe -m solution.code.independent_evaluation solution/reports/external/idsse-four-match-v1/manifest.json --development --profiles controlled contact --baseline controlled --diagnostics --timing-runs 3 --bootstrap 0 --output-dir solution/reports/contact-reproduction
-.\.venv\Scripts\python.exe -m solution.code.independent_evaluation solution/reports/external/idsse-four-match-v1/manifest.json --development --profiles controlled contact --baseline controlled --stress-seed 505 --bootstrap 0 --output-dir solution/reports/contact-stress-reproduction
-```
-
-Stress masks depend only on seed 505 and source length. Coordinate noise and
-ball gaps leave retained team distances unchanged: this is explicitly a channel
-consistency experiment, not a physical tracking reconstruction or independent
-accuracy claim. Reference labels never enter corruption or prediction.
-
-Additional source review: [Metrica samples](https://github.com/metrica-sports/sample-data)
-provide synchronised tracking/events; [SoccerTrack v2](https://arxiv.org/abs/2508.01802v2)
-describes trajectories and actor-linked ball-action events. Compatible dense
-control/stoppage references and all required reuse terms were not established
-for a new final test; neither source was imported as gold possession labels.
-
-Inputs may be ATD, numeric NPZ or JSON features; inline arrays are synthetic only.
-The [synthetic manifest](tests/fixtures/independent_manifest.synthetic.json)
-documents schema version 1: canonical match/group identities, split, evidence
-kind, pitch, 25 fps, units, frame coverage, half-open period blocks, input paths,
-reference paths and provenance. Provenance must describe source, licence,
-organiser access, label method/author and whether inputs use reference labels.
-Declarations and path/hash guards catch mistakes; they do not prove independence.
-
-The scorer receives an evaluation grid with 51 ignored X frames inserted only
-between metadata periods. All source frames and within-period unknown gaps are
-preserved; inference uses the original grid. This prevents possessions merging
-across halftime or transitions matching across periods without changing official
-metric code. Unknown provider-reference frames are never filled as invented truth.
-
-Results separate reference/proxy/synthetic evidence and contain per-match official
-metrics, paired differences, configuration, environment and source/input/prediction
-hashes. Prediction timing excludes loading and copying; do not equate it with
-full CLI timing. Within-match bootstrap intervals do not measure between-match
-uncertainty or establish a paired gain.
-
-## Final-test discipline
-
-Select on development first; freeze the candidate, configuration, code, inputs
-and acceptance rules. Score it once on genuinely new final matches. Do not
-change a candidate after examining those results and continue calling the same
-matches held-out. Keep failed and neutral experiments as well as successful ones.
-
-Completed experiment 002 is recorded locally under
-`solution/reports/quality-development/control-switch-cost-002/` and
-`control-switch-cost-002-final/`, with the evaluated-source snapshot. Its tracked
-[protocol](experiments/control-switch-cost-002.json) is immutable history, not
-an instruction to repeat selection or reset consumption markers.
-
-Raw inputs, converted labels, predictions and detailed traces stay in ignored
-local directories. Keep source/configuration hashes and existing artifacts when
-cleaning documentation; do not discard the evidence behind published claims.
+Use a new output directory. Preserve the existing split and do not reuse consumed final matches for selection. The historical experiment protocols and decisions are in [experiments](experiments/). The former research drivers can be inspected at commit `4e872015`.

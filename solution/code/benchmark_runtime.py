@@ -27,8 +27,8 @@ def main():
     parser.add_argument("--runs", type=int, default=3, help="Measured runs per method (default: 3)")
     parser.add_argument("--warmup", type=int, default=1, help="Unmeasured warm-up runs per method")
     parser.add_argument("--data-dir", type=Path, help="Alternative data bundle root for both methods")
-    parser.add_argument("--profile", choices=PROFILES, default="incumbent",
-                        help="Fixed solution profile to compare; responsive uses the independently selected cost 12")
+    parser.add_argument("--profile", choices=PROFILES, default="controlled",
+                        help="Fixed solution profile to compare; controlled uses the independently selected cost 12")
     parser.add_argument("--output-dir", type=Path, default=SOLUTION_ROOT / "reports" / "runtime-benchmark")
     args = parser.parse_args()
     if args.runs < 1 or args.warmup < 0:

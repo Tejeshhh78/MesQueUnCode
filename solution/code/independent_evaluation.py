@@ -38,7 +38,7 @@ ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_TYPES = {"reference", "proxy", "synthetic"}
 SPLITS = {"training", "development", "final_test"}
 UNITS = {"positions": "normalised_pitch", "distances": "metres", "speeds": "metres_per_second"}
-DEFAULT_PROFILES = ("incumbent", "reliable")
+DEFAULT_PROFILES = PROFILES
 METRICS = ("spell_f1_mean", "macro_f1", "accuracy", "alive_dead_f1", "team_acc_gt_alive",
            "team_acc_both_alive", "fragmentation", "mean_spell_duration_s",
            "n_gt_spells", "n_pred_spells", "n_graded", "n_abstain_on_graded")
@@ -382,7 +382,7 @@ def corrupt_observations(features, pitch, seed):
 
 
 def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, configs=None, bootstrap_n=0,
-                      baseline="incumbent", diagnostics=False, timing_runs=0, stress_seed=None):
+                      baseline="controlled", diagnostics=False, timing_runs=0, stress_seed=None):
     """Return aggregate results only; labels are parsed after all profile predictions."""
     if purpose not in {"development", "final_test"}:
         raise ValueError("Choose development or final_test explicitly")
@@ -452,7 +452,7 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
                 kwargs["trace"] = traces[profile]
             if "profile" in inspect.signature(predict).parameters:
                 kwargs["profile"] = profile
-            elif profile != "incumbent":
+            elif profile != "controlled":
                 raise ValueError("This model revision does not implement experimental profile selection")
             started = time.perf_counter()
             labels, _ = predict(inputs, tags, blocks, match["pitch_m"], 25, **kwargs)
@@ -537,7 +537,7 @@ def main(argv=None):
     mode.add_argument("--development", action="store_true")
     mode.add_argument("--final-test", action="store_true")
     parser.add_argument("--profiles", nargs="+", choices=PROFILES, default=list(DEFAULT_PROFILES))
-    parser.add_argument("--baseline", choices=PROFILES, default="incumbent")
+    parser.add_argument("--baseline", choices=PROFILES, default="controlled")
     parser.add_argument("--diagnostics", action="store_true")
     parser.add_argument("--timing-runs", type=int, default=0)
     parser.add_argument("--stress-seed", type=int, help="Development-only observation-channel corruption")

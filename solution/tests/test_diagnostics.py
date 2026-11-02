@@ -148,24 +148,25 @@ class PredictionTraceTests(unittest.TestCase):
         outside = np.ones(n, dtype=bool)
         outside[10:70] = False
         outside[90:150] = False
-        for profile in ("incumbent", "reliable"):
-            with self.subTest(profile=profile):
-                before, _ = predict(features, [], blocks, (105, 68), 25, profile=profile)
-                trace = {}
-                after, _ = predict(features, [], blocks, (105, 68), 25, profile=profile, trace=trace)
-                np.testing.assert_array_equal(before, after)
-                self.assertTrue(set(TRACE_FEATURES + ("scores",)).issubset(trace))
-                for name in TRACE_FEATURES:
-                    self.assertEqual(trace[name].shape, (n,))
-                    self.assertTrue(np.isnan(trace[name][outside]).all())
-                self.assertEqual(trace["scores"].shape, (n, 3))
-                self.assertTrue(np.isnan(trace["scores"][outside]).all())
-                result = aggregate_diagnostics(trace, after, blocks, 25)
-                self.assertEqual(result["scope"]["analysed_frames"], 120)
-                self.assertEqual(result["emission_statistics"]["complete_score_frames"], 120)
-                expected_rejected_fraction = 1 / 120 if profile == "reliable" else 0
-                self.assertAlmostEqual(result["feature_statistics"]["ball_rejected"]["mean"],
-                                       expected_rejected_fraction)
+        profile = "controlled"
+        before, _ = predict(features, [], blocks, (105, 68), 25, profile=profile)
+        trace = {}
+        after, _ = predict(features, [], blocks, (105, 68), 25, profile=profile, trace=trace)
+        np.testing.assert_array_equal(before, after)
+        self.assertTrue(set(TRACE_FEATURES + ("scores",)).issubset(trace))
+        for name in TRACE_FEATURES:
+            self.assertEqual(trace[name].shape, (n,))
+            self.assertTrue(np.isnan(trace[name][outside]).all())
+        self.assertEqual(trace["scores"].shape, (n, 3))
+        self.assertTrue(np.isnan(trace["scores"][outside]).all())
+        result = aggregate_diagnostics(trace, after, blocks, 25)
+        self.assertEqual(result["scope"]["analysed_frames"], 120)
+        self.assertEqual(result["emission_statistics"]["complete_score_frames"], 120)
+        expected_rejected_fraction = 0
+        self.assertAlmostEqual(result["feature_statistics"]["ball_rejected"]["mean"],
+                               expected_rejected_fraction)
+
+
 
 
 class ReferenceDiagnosticsTests(unittest.TestCase):

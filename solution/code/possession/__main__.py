@@ -2,7 +2,6 @@
 
 import argparse
 from collections import Counter
-from dataclasses import replace
 import hashlib
 import json
 from pathlib import Path
@@ -53,7 +52,7 @@ def write_submission(path, labels):
         temporary.unlink(missing_ok=True)
 
 
-def run(data_dir, output_dir, team, *, profile="incumbent", diagnostics=False, save_trace=False,
+def run(data_dir, output_dir, team, *, profile="controlled", diagnostics=False, save_trace=False,
         team_switch_cost=None):
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", team):
         raise ValueError("Team name: 1–80 letters/digits, hyphens or underscores")
@@ -62,10 +61,8 @@ def run(data_dir, output_dir, team, *, profile="incumbent", diagnostics=False, s
     if save_trace and not diagnostics:
         raise ValueError("Saving a detailed trace requires diagnostics")
     config = profile_config(profile)
-    if team_switch_cost is not None:
-        if profile not in ("responsive", "controlled") or not np.isfinite(team_switch_cost) or team_switch_cost <= 0:
-            raise ValueError("A positive finite team-switch cost requires the responsive or controlled profile")
-        config = replace(config, team_switch_cost=float(team_switch_cost))
+    if team_switch_cost is not None and team_switch_cost != config.team_switch_cost:
+        raise ValueError("The selected controlled model uses a team-switch cost of 12")
     output_dir = Path(output_dir)
     target = output_dir / f"{team}.csv"
     manifest_path = output_dir / f"{team}.manifest.json"
@@ -102,7 +99,7 @@ def run(data_dir, output_dir, team, *, profile="incumbent", diagnostics=False, s
         ROOT / "games.py", SOLUTION_ROOT / "requirements.txt"]
     manifest = {
         "version": __version__, "team": team, "game": GAME, "profile": profile,
-        "status": "incumbent" if profile == "incumbent" else "experimental_not_promoted",
+        "status": "selected",
         "environment": {"python": platform.python_version(), "numpy": np.__version__, "pandas": pd.__version__},
         "config": config.to_dict(), "inputs_sha256": fingerprints,
         "code_sha256": {str(p.relative_to(ROOT)).replace("\\", "/"): sha256(p) for p in source_paths},
@@ -117,10 +114,6 @@ def run(data_dir, output_dir, team, *, profile="incumbent", diagnostics=False, s
     document = SOLUTION_ROOT / "TECHNICAL_REPORT.md"
     if document.is_file():
         report_text = document.read_text(encoding="utf-8")
-        if profile != "incumbent":
-            report_text = (f"> EXPERIMENTAL OUTPUT: profile `{profile}` has not been promoted.\n"
-                           "> The incumbent described below remains the submission default.\n\n"
-                           + report_text)
         (output_dir / f"{team}.md").write_text(report_text, encoding="utf-8", newline="\n")
     print(f"OK: {len(labels):,} rows; {len(spells)} predicted possession spells")
     print(f"SHA-256: {manifest['submission_sha256']}")
@@ -131,22 +124,18 @@ def run(data_dir, output_dir, team, *, profile="incumbent", diagnostics=False, s
 def main():
     parser = argparse.ArgumentParser(description="Local possession inference without human training labels")
     parser.add_argument("--data-dir", help="Data bundle root; default: data/ or MTAH_DATA_DIR")
-    parser.add_argument("--output-dir", help="Default: solution/results for incumbent; separate reports directory for experiments")
+    parser.add_argument("--output-dir", help="Default: solution/results/controlled")
     parser.add_argument("--team", default="MesQueUnCode", help="Registered team name to use as the filename")
-    parser.add_argument("--profile", choices=PROFILES, default="incumbent",
-                        help="Explicit experimental alternative; incumbent remains the default")
-    parser.add_argument("--team-switch-cost", type=float,
-                        help="Explicit responsive-profile configuration; recorded in the output manifest")
+    parser.add_argument("--profile", choices=PROFILES, default="controlled",
+                        help="Selected possession model")
+    parser.add_argument("--team-switch-cost", type=float, choices=[12.0],
+                        help="Fixed model configuration; recorded in the output manifest")
     parser.add_argument("--diagnostics", action="store_true", help="Write aggregate evidence diagnostics")
     parser.add_argument("--save-trace", action="store_true", help="Also save local arrays; requires --diagnostics and a Git-ignored output path")
     args = parser.parse_args()
     if args.save_trace and not args.diagnostics:
         parser.error("--save-trace requires --diagnostics")
-    output = args.output_dir or str(SOLUTION_ROOT / "results" if args.profile == "incumbent"
-                                    else SOLUTION_ROOT / "reports" / "experimental" / args.profile)
-    if args.profile != "incumbent":
-        print("Explicit candidate profile: consult independent validation for its evidence and limits. "
-              "Incumbent remains the default.", flush=True)
+    output = args.output_dir or str(SOLUTION_ROOT / "results" / "controlled")
     try:
         run(args.data_dir, output, args.team, profile=args.profile,
             diagnostics=args.diagnostics, save_trace=args.save_trace, team_switch_cost=args.team_switch_cost)

@@ -18,7 +18,7 @@ class ComparisonProfileTests(unittest.TestCase):
                 runtime = Path(folder) / "runtime"
                 runtime.mkdir()
                 (runtime / "timings.json").write_text(json.dumps(record), encoding="utf-8")
-                argv = ["compare_algorithms", "--quality-only", "--profile", "responsive",
+                argv = ["compare_algorithms", "--quality-only", "--profile", "controlled",
                         "--output-dir", folder]
                 error = io.StringIO()
                 with mock.patch("sys.argv", argv), contextlib.redirect_stderr(error), \
