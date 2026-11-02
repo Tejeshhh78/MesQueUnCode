@@ -1,0 +1,57 @@
+{
+  "code_sha256": {
+    "games.py": "473bf0502a28d93ff49fe5c20be4e546e30a9d8fa4112ab50b1ecdaf44233064",
+    "solution/code/possession/__init__.py": "dec8f47bb702dccd26dcaea107f9ed5e6d1f73c0162c0908c2f969c79f71cf6f",
+    "solution/code/possession/__main__.py": "8b23c0c2339283dfa1a0503f4dca222bfcd99bd72740cde842d292eb3e230a56",
+    "solution/code/possession/data.py": "e4e48d685e74dcef4fcfc5f2eabb74507bf2b704c7c816397f70f74fbf8dc6b4",
+    "solution/code/possession/model.py": "18f38cee7512ed69efdbedb8f81d9cecc27412c27142d865bab8b215afbe719b",
+    "solution/requirements.txt": "df7f58f566fd217da5039d0bcde56fff83dd99a21df9fb04434a5cae6d34a926"
+  },
+  "config": {
+    "control_radius_m": 6.0,
+    "distance_margin_m": 2.5,
+    "min_state_s": 0.32,
+    "motion_window_s": 1.0,
+    "short_gap_s": 0.32,
+    "stoppage_switch_cost": 24.0,
+    "tag_strength": 1.25,
+    "team_switch_cost": 20.0
+  },
+  "environment": {
+    "numpy": "2.3.5",
+    "pandas": "3.0.1",
+    "python": "3.12.14"
+  },
+  "game": "BAR-ATH",
+  "ground_truth_used": false,
+  "inputs_sha256": {
+    "BAR-ATH_tactical_atd.txt": "f130e350d2bfdf734b7e32f072931fccc6d015c1e837d082064875fe0a700431",
+    "BAR-ATH_tactical_atd.xml": "327e35e32e46a647389b88f883d4f9a2ab931e3e6148aef2fcf8f22b1e93c43a",
+    "BAR-ATH_tactical_smart_tagging.xml": "0594d35e3df01b9c5002372d8615e2e8ef5379ac8f4e84c5ef7a53f4304c9019"
+  },
+  "label_counts": {
+    "A": 36303,
+    "D": 61324,
+    "H": 61230,
+    "X": 40462
+  },
+  "model": {
+    "activity_model": {
+      "fitted": true,
+      "regime_speed_m_s": [
+        1.0681746489164121,
+        2.3012888840864876
+      ],
+      "weights": [
+        0.5090573395025944,
+        0.4909426604974056
+      ]
+    },
+    "unknown_team_tags": 0
+  },
+  "possession_count": 210,
+  "rows": 199319,
+  "submission_sha256": "3ce21a4bf873fcfe7a04013408537d230e8a32d361ea18ec430d6e12c77bd43e",
+  "team": "MesQueUnCode",
+  "version": "1.0.0"
+}
