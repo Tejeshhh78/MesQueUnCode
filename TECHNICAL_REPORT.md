@@ -201,3 +201,15 @@ The next methodological improvement should be validated on legally available
 possessions. Local video evidence is a possible later extension once videos are
 available. The public competition window remains excluded from tuning. The
 current solution contains no manual corrections.
+
+## Optional formation evidence in ball gaps
+
+`--profile v2-shape` adds a lateral formation cue to v2 when ball XY is missing.
+With at least seven visible players on each side, we measure the difference
+in lateral spread. We calibrate the cue from unambiguous near-ball frames in
+the other half and suppress it if the observed spread difference has the
+wrong sign or either team has fewer than ten sampled contacts. We use the
+challenge match only for automatic inference when the user runs the pipeline.
+The [fork review](docs/FORK_REVIEW.md) records the inspiration, ablation and
+scope of validation. Across twelve paired other-game conditions, mean spellF1
+was 0.5109 for v2 and 0.5289 with the cue.

@@ -4,7 +4,7 @@ Physical scales and regularisation were fixed before the public pipeline check.
 They were not trained on this match.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from difflib import SequenceMatcher
 
 import numpy as np
@@ -24,9 +24,13 @@ class Config:
     tag_strength: float = 1.25
     # "first": Viterbi's own tie-breaking (earliest frame). "middle": see place_tied_switches.
     tie_switch_placement: str = "first"
+    shape_gap: bool = False
 
     def to_dict(self):
-        return asdict(self)
+        config = asdict(self)
+        if not self.shape_gap:
+            del config["shape_gap"]  # Preserve the existing v1/v2 manifest format.
+        return config
 
 
 # v1 is the method fixed before the public pipeline check; its output is unchanged.
@@ -40,6 +44,40 @@ PROFILES = {
     "v2": Config(control_radius_m=1.5, distance_margin_m=0.5, team_switch_cost=15.0,
                  tag_strength=0.6, tie_switch_placement="middle"),
 }
+PROFILES["v2-shape"] = replace(PROFILES["v2"], shape_gap=True)
+
+
+def gap_shape_support(features, blocks, fps):
+    """Use the other half's clear ball contacts to calibrate lateral spread as a weak team cue."""
+    out = np.zeros(len(features.ball))
+    width = features.width_delta
+    if width is None or len(blocks) != 2:
+        return out
+    distance = features.distance
+    xy = features.ball[:, :2]
+    on_pitch = np.isfinite(xy).all(axis=1) & ((xy >= 0) & (xy <= 1)).all(axis=1)
+    home = on_pitch & (distance[:, 0] <= 1.5) & (distance[:, 1] >= 3)
+    away = on_pitch & (distance[:, 1] <= 1.5) & (distance[:, 0] >= 3)
+    for i, (_, first, last) in enumerate(blocks):
+        _, other_first, other_last = blocks[1 - i]
+        sample = np.arange(other_first, other_last + 1, fps)
+        sample = sample[np.isfinite(width[sample])]
+        h = width[sample[home[sample]]]
+        a = width[sample[away[sample]]]
+        if min(len(h), len(a)) < 10:
+            continue
+        separation = np.median(h) - np.median(a)
+        spread = max(float(np.std(np.r_[h, a])), 0.01)
+        # Weak or inverted relation in the fitting half provides no support.
+        if separation <= 0:
+            continue
+        target = np.arange(first, last + 1)
+        missing = ~np.isfinite(xy[target]).all(axis=1) & np.isfinite(width[target])
+        idx = target[missing]
+        centre = (np.median(h) + np.median(a)) / 2
+        strength = min(separation / spread, 1.0)
+        out[idx] = 0.5 * strength * np.clip((width[idx] - centre) / spread, -1, 1)
+    return out
 
 
 def rolling_mean(values, width):
@@ -185,6 +223,7 @@ def emissions(features, events, blocks, pitch, fps, config=Config()):
     out = np.zeros((n, 3))
     activity, model_report = activity_evidence(features.mean_speed, fit_mask, fps)
     unknown = 0
+    shape = gap_shape_support(features, blocks, fps) if config.shape_gap else None
     for _, start, last in blocks:
         stop = last + 1
         length = stop - start
@@ -219,6 +258,8 @@ def emissions(features, events, blocks, pitch, fps, config=Config()):
             local_events, features.teams, length, fps, ball_speed, motion)
         unknown += unknown_local
         team = geometry + config.tag_strength * tags
+        if shape is not None:
+            team += shape[start:stop]
         alive = (0.4 + 0.7 * activity[start:stop] + 1.8 * moving - 0.4 * missing
                  - 1.2 * stationary * slow - 3.0 * outside + status_tags)
         alive = np.clip(alive, -7, 7)

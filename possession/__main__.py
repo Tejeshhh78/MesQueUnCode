@@ -63,7 +63,8 @@ def run(data_dir, output_dir, team, profile="v1"):
     paths = require(["atd_meta", "atd_raw", "smart_tagging"], data_dir=data_dir)
     fingerprints = {Path(p).name: sha256(p) for p in paths}
     print("Reading and validating tactical tracking locally ...", flush=True)
-    features = read_tracking(paths[0], paths[1], game["n_video_frames"], game["pitch"])
+    features = read_tracking(paths[0], paths[1], game["n_video_frames"], game["pitch"],
+                             with_shape=config.shape_gap)
     events = read_events(paths[2], game["n_video_frames"], game["fps"])
     print("Computing evidence and temporal states ...", flush=True)
     labels, model_report = predict(features, events, half_video_blocks(GAME), game["pitch"], game["fps"], config)
@@ -103,7 +104,7 @@ def main():
     parser.add_argument("--team", default="MesQueUnCode", help="Registered team name to use as the filename")
     parser.add_argument("--profile", default="v1", choices=sorted(PROFILES),
                         help="v1: method fixed before the public check (default); "
-                             "v2: recalibrated on other matches only, see validation/")
+                             "v2: other-match calibration; v2-shape: experimental formation cue in ball gaps")
     args = parser.parse_args()
     try:
         run(args.data_dir, args.output_dir, args.team, args.profile)

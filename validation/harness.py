@@ -3,7 +3,7 @@
 import numpy as np
 
 from evaluation import possession_metrics as pm
-from possession.data import Features
+from possession.data import Features, team_width_delta
 from possession.model import Config, predict
 from starter.baseline import smooth
 
@@ -49,7 +49,7 @@ def build_features(ball, home, away, pitch, fps):
         player_speed[ok, side] = speeds[np.flatnonzero(ok), nearest[ok]]
     ball3 = np.column_stack([ball, np.zeros(n)])
     return Features(ball3, distance, player_speed, mean_speed, fast,
-                    visible.sum(axis=1).astype(np.int16), ("Home", "Away"))
+                    visible.sum(axis=1).astype(np.int16), ("Home", "Away"), team_width_delta(players, team))
 
 
 def timeline(game, codes, ball, home, away):

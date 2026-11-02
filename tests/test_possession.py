@@ -9,10 +9,10 @@ import numpy as np
 
 from evaluation import possession_metrics as pm
 from possession.__main__ import write_submission
-from possession.data import Features, read_events, read_tracking
+from possession.data import Features, read_events, read_tracking, team_width_delta
 from possession.model import (PROFILES, Config, activity_evidence, decode, fill_short_gaps,
                               place_tied_switches, predict, rolling_mean, tagging_evidence,
-                              team_side)
+                              team_side, gap_shape_support)
 
 
 def path_objective(scores, cost, path):
@@ -107,6 +107,34 @@ class DataTests(unittest.TestCase):
 
 
 class InferenceTests(unittest.TestCase):
+    def test_shape_requires_two_visible_teams_and_is_mirror_invariant(self):
+        xy = np.full((2, 14, 2), 0.5)
+        xy[:, :7, 1] = np.linspace(0.1, 0.9, 7)
+        xy[1, 0] = np.nan
+        team = np.repeat([0, 1], 7)
+        delta = team_width_delta(xy, team)
+        self.assertGreater(delta[0], 0)
+        self.assertTrue(np.isnan(delta[1]))
+        np.testing.assert_allclose(delta, team_width_delta(1 - xy, team))
+
+    def test_shape_uses_other_half_and_only_scores_missing_frames(self):
+        features = synthetic_features(100)
+        features.width_delta = np.zeros(100)
+        features.ball[:] = [0.5, 0.5, 0]
+        features.ball[:25] = np.nan
+        features.width_delta[:40] = 0.1
+        features.width_delta[50:75] = 0.1
+        features.width_delta[75:] = -0.1
+        features.distance[75:] = [8, 0.5]
+        features.width_delta[3] = np.nan
+        blocks = [(1, 0, 39), (2, 50, 99)]
+        support = gap_shape_support(features, blocks, 1)
+        self.assertGreater(support[0], 0)
+        self.assertEqual(support[3], 0)
+        np.testing.assert_array_equal(support[25:], 0)
+        features.width_delta[50:] *= -1
+        np.testing.assert_array_equal(gap_shape_support(features, blocks, 1), 0)
+
     def test_rolling_edges_and_short_gaps(self):
         np.testing.assert_allclose(rolling_mean([1, np.nan, 3, 5], 3), [1, 2, 4, 4])
         points = np.array([[0, 0], [np.nan, np.nan], [2, 2], [np.nan, np.nan],

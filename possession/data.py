@@ -25,6 +25,21 @@ class Features:
     fast_fraction: np.ndarray
     player_count: np.ndarray
     teams: tuple
+    width_delta: np.ndarray = None
+
+
+def team_width_delta(xy, slot_team):
+    """Home minus away lateral spread (pitch widths), with at least seven tracks per side."""
+    widths = []
+    for side in (0, 1):
+        positions = xy[:, slot_team == side, :2]
+        valid = np.isfinite(positions).all(axis=2) & ((positions >= 0) & (positions <= 1)).all(axis=2)
+        count = valid.sum(axis=1)
+        lateral = np.where(valid, positions[:, :, 1], 0)
+        centre = lateral.sum(axis=1) / np.maximum(count, 1)
+        variance = np.where(valid, (lateral - centre[:, None]) ** 2, 0).sum(axis=1)
+        widths.append(np.where(count >= 7, np.sqrt(variance / np.maximum(count, 1)), np.nan))
+    return widths[0] - widths[1]
 
 
 def read_metadata(path):
@@ -63,6 +78,8 @@ def _tracking_block(rows, first, slot_team, scale, output):
     where = slice(first, first + n_rows)
     visible = np.isfinite(players[:, :, :2]).all(axis=2)
     output.ball[where] = points
+    if output.width_delta is not None:
+        output.width_delta[where] = team_width_delta(players, slot_team)
     output.player_count[where] = visible.sum(axis=1)
     speeds = players[:, :, 2]
     valid_speed = visible & np.isfinite(speeds) & (speeds >= 0) & (speeds <= 15)
@@ -96,7 +113,7 @@ def _tracking_block(rows, first, slot_team, scale, output):
         output.player_speed[first + indices, team] = speeds[indices, nearest[indices]]
 
 
-def read_tracking(meta_path, raw_path, n_frames, pitch, block_size=4096):
+def read_tracking(meta_path, raw_path, n_frames, pitch, block_size=4096, with_shape=False):
     """Stream the input once; every frame must appear exactly once and in order.
 
     The block size affects memory usage and speed only, not the features or
@@ -109,6 +126,8 @@ def read_tracking(meta_path, raw_path, n_frames, pitch, block_size=4096):
                       np.full((n_frames, 2), np.nan), np.full(n_frames, np.nan),
                       np.full(n_frames, np.nan), np.zeros(n_frames, dtype=np.int16), names)
     scale = np.asarray(pitch, dtype=np.float64)
+    if with_shape:
+        output.width_delta = np.full(n_frames, np.nan)
     rows = []
     count = 0
     with Path(raw_path).open(encoding="utf-8-sig") as handle:
