@@ -29,20 +29,33 @@ copy it to a `gh-pages` branch), Netlify or Vercel (publish directory `website`)
 
 ## Editing
 
-* **Team members:** edit [`website/team.js`](../website/team.js). Entries with
-  `placeholder: true` show a visible "Placeholder" badge; delete that line when the entry is real.
+* **Team members:** edit [`website/team.js`](../website/team.js): name, GitHub login (the avatar
+  is loaded from `github.com/<login>.png`, falling back to initials), optional role, and links.
+  `GitHub` and `LinkedIn` links get their icon automatically.
 * **Metrics:** edit [`website/metrics.js`](../website/metrics.js) after re-running
   `python solution/experiments.py` and `python evaluation/run_evaluation.py --bootstrap 1000`. Keep
   `fullMatch.spellF1: null` for our system unless the organisers publish the score: the page then
   shows "Run locally with the supplied data". Never put an estimate there.
-* **Colours:** the tokens at the top of `styles.css`.
+* **Colours:** the tokens at the top of `styles.css`. The theme is a night match in Barcelona:
+  navy base, blaugrana (blue/garnet) stripe and glows, a gold accent, a green pitch for the board.
+  Data colours are fixed by meaning and were checked with the dataviz skill's palette validator on
+  the chart surface `#111b3d`: H `#3987e5` (home, blue), A `#e66767` (away, red), D `#a7acb6`
+  (neutral, plus a 45° hatch as a second cue). Charts use `#c98500` for our system and a recessive
+  `#6b7aa1` for the baselines. Re-run the validator if you change any of them.
 
 ## What is on the page
 
-Hero with an animated tactical board · the challenge and the match timeline · the H/A/D/X labels ·
-pipeline architecture and how it works · an interactive possession demo · baseline versus solution
-metrics · data constraints and gated assets · team cards · links to the repository, challenge and
-evaluation docs.
+Hero with an animated tactical board and the "Més que un club. Més que un code." motto · a
+scrolling ticker of punchwords · the challenge, with count-up stats and the match timeline · the
+H/A/D/X labels · pipeline architecture and how it works · the **Rondo lab** · an interactive
+possession demo · baseline versus solution metrics · data constraints and gated assets · team cards ·
+links to the repository, challenge and evaluation docs. Section eyebrows are in Catalan or Spanish
+with an English gloss ("El repte · The challenge").
+
+The **Rondo lab** is a zoomed attacking half where you drag the ball and players (or move the ball
+with the arrow keys). It runs the model's own per-frame evidence live: nearest player per team,
+the 1.5 m control kernel, the pass-speed discount, the out-of-play margin, and how many frames of
+that evidence would pay for a hand-over. It uses no match data.
 
 The **demo** generates a synthetic two-minute match in the browser (seeded, reproducible) and runs
 the same ideas as the Python model — majority-vote baseline, smoothed evidence, Viterbi with a
@@ -55,9 +68,11 @@ against the synthetic truth. It uses no match data.
 * Skip link; every control reachable by keyboard; visible `:focus-visible` outline.
 * Mobile menu button with `aria-expanded`/`aria-controls`; Escape closes it and returns focus.
 * Every SVG has `role="img"` with a `title` and, where it carries information, a `desc`.
-* Colour is never the only carrier of meaning: rows and tables are labelled in text.
-* `prefers-reduced-motion`: the hero animation stays on a still frame, the demo cursor is disabled,
-  smooth scrolling and transitions are off.
+* Colour is never the only carrier of meaning: rows and tables are labelled in text, charts have
+  a legend and a table view, and D is hatched.
+* Chart bars are keyboard-focusable and show the same tooltip on focus as on hover.
+* `prefers-reduced-motion`: the hero animation stays on a still frame, the ticker stops and wraps,
+  stats show their final value, the demo cursor is disabled, smooth scrolling and transitions are off.
 * Text contrast on the dark pitch background is at least 4.5:1 for body text.
 * No horizontal page scroll at 375 px; wide tables and diagrams scroll inside their own region.
 

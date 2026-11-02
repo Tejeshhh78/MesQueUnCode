@@ -16,22 +16,22 @@ window.MQUC_METRICS = {
   measuredOn: "2026-11-02",
   systems: [
     {
-      id: "baseline_raw", label: "Baseline, raw", kind: "baseline",
+      id: "baseline_raw", label: "Baseline, raw", short: "Baseline raw", kind: "baseline",
       public: { macroF1: 0.5972, spellF1: 0.0378, spellCI: [0.019, 0.059], poss: 131 },
       fullMatch: { spellF1: 0.0486, possessions: 1949, meanPossS: 1.9, shareD: 40.7 }
     },
     {
-      id: "baseline_smooth50", label: "Baseline, ±50 vote (published floor)", kind: "baseline",
+      id: "baseline_smooth50", label: "Baseline, ±50 vote (published floor)", short: "Baseline ±50 (floor)", kind: "baseline",
       public: { macroF1: 0.6207, spellF1: 0.3256, spellCI: [0.214, 0.447], poss: 26 },
       fullMatch: { spellF1: 0.2433, possessions: 594, meanPossS: 7.2, shareD: 32.3 }
     },
     {
-      id: "baseline_smooth125", label: "Baseline, ±125 vote", kind: "baseline",
+      id: "baseline_smooth125", label: "Baseline, ±125 vote", short: "Baseline ±125", kind: "baseline",
       public: { macroF1: 0.5812, spellF1: 0.4242, spellCI: [0.267, 0.594], poss: 16 },
       fullMatch: { spellF1: 0.2242, possessions: 398, meanPossS: 12.4, shareD: 22.3 }
     },
     {
-      id: "mes_que_un_code", label: "Mes Que Un Code (ours)", kind: "ours",
+      id: "mes_que_un_code", label: "Mes Que Un Code (ours)", short: "Mes Que Un Code", kind: "ours",
       public: { macroF1: 0.8344, spellF1: 0.4714, spellCI: [0.257, 0.671], poss: 11 },
       fullMatch: { spellF1: null, possessions: 202, meanPossS: 18.9, shareD: 39.9 }
     }

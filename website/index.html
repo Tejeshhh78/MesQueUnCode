@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mes Que Un Code</title>
   <meta name="description" content="Mes Que Un Code: frame-by-frame ball possession from automatic tracking, for More than a Hack 2027 — Phase 1.">
-  <meta name="theme-color" content="#0b2a1c">
+  <meta name="theme-color" content="#070c1f">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f3b27'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23f4f1e8' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23f2c14e'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -30,6 +30,7 @@
         <li><a href="#challenge">Challenge</a></li>
         <li><a href="#labels">Labels</a></li>
         <li><a href="#how">How it works</a></li>
+        <li><a href="#rondo">Rondo</a></li>
         <li><a href="#demo">Demo</a></li>
         <li><a href="#metrics">Metrics</a></li>
         <li><a href="#data">Data</a></li>
@@ -43,21 +44,22 @@
     <section class="hero" id="top" aria-labelledby="hero-title">
       <div class="hero-copy">
         <p class="eyebrow">More than a Hack 2027 · Phase 1 · Ball Possession</p>
+        <p class="motto"><span>Més que un club.</span> <span class="motto-gold">Més que un code.</span></p>
         <h1 id="hero-title">Mes Que Un Code</h1>
         <p class="tagline">Twenty-two players, one ball, 199,319 frames.<br>
-          <strong>We read the geometry to find who is really in control.</strong></p>
+          <strong>We read the match like a rondo: who has it, who hunts it, and when it truly changes hands.</strong></p>
         <p class="lede">A possession model that thinks in spells, not frames: it reads automatic tracking,
           tactical tagging and team shape, then decodes the match into whole possessions with a
           three-state Viterbi decoder.</p>
         <div class="hero-actions">
-          <a class="button primary" href="#demo">Try the live demo</a>
-          <a class="button ghost" href="https://github.com/Tejeshhh78/MesQueUnCode">View the code</a>
+          <a class="button primary" href="#rondo">Play the rondo</a>
+          <a class="button ghost" href="#demo">Watch the decoder</a>
         </div>
       </div>
       <figure class="hero-pitch">
         <svg id="hero-svg" viewBox="0 0 1053 680" role="img" aria-labelledby="hero-svg-title hero-svg-desc">
           <title id="hero-svg-title">Animated tactical board</title>
-          <desc id="hero-svg-desc">A football pitch seen from above. Home players in white and away players in gold move around; a halo marks the team our model believes has the ball.</desc>
+          <desc id="hero-svg-desc">A football pitch seen from above. Home players in blue and away players in red move around; a halo marks the team our model believes has the ball.</desc>
           <defs>
             <pattern id="stripes" width="105.3" height="680" patternUnits="userSpaceOnUse">
               <rect width="52.65" height="680" fill="var(--pitch-a)"/>
@@ -86,10 +88,14 @@
       </figure>
     </section>
 
+    <div class="ticker" aria-hidden="true">
+      <ul class="ticker-track"><li>Més que un code</li><li class="dot">●</li><li>Juego de posición</li><li class="dot">●</li><li>Rondo</li><li class="dot">●</li><li>Tiki-taka for tensors</li><li class="dot">●</li><li>Blaugrana bytes</li><li class="dot">●</li><li>Visca el codi</li><li class="dot">●</li><li>Pass. Move. Decode.</li><li class="dot">●</li><li>La Masia of models</li><li class="dot">●</li><li>Possession is nine-tenths of spellF1</li><li class="dot">●</li><li>Força Barça</li><li class="dot">●</li><li>Més que un code</li><li class="dot">●</li><li>Juego de posición</li><li class="dot">●</li><li>Rondo</li><li class="dot">●</li><li>Tiki-taka for tensors</li><li class="dot">●</li><li>Blaugrana bytes</li><li class="dot">●</li><li>Visca el codi</li><li class="dot">●</li><li>Pass. Move. Decode.</li><li class="dot">●</li><li>La Masia of models</li><li class="dot">●</li><li>Possession is nine-tenths of spellF1</li><li class="dot">●</li><li>Força Barça</li><li class="dot">●</li></ul>
+    </div>
+
     <!-- Challenge ------------------------------------------------------------------------------->
     <section class="section" id="challenge" aria-labelledby="challenge-title">
       <div class="section-head">
-        <p class="eyebrow">The challenge</p>
+        <p class="eyebrow">El repte · The challenge</p>
         <h2 id="challenge-title">For every frame of the match, say who has the ball.</h2>
         <p>One LaLiga match — FC Barcelona vs Athletic Club — recorded by a fixed tactical camera.
           The output is one label per video frame, scored against a private frame-by-frame ground truth.</p>
@@ -108,9 +114,9 @@
           <desc id="strip-desc">Frames 0 to 11,184 before kick-off, ungraded. First half from 11,185 to 90,651, graded. Halftime 90,652 to 110,807, ungraded. Second half 110,808 to 190,197, graded, with the kick-off at 113,742. After the final whistle, ungraded.</desc>
           <g font-size="15" font-family="inherit">
             <rect x="0" y="34" width="56" height="44" fill="var(--muted-bg)"/>
-            <rect x="56" y="34" width="399" height="44" fill="var(--pitch-b)"/>
+            <rect x="56" y="34" width="399" height="44" fill="var(--blau)"/>
             <rect x="455" y="34" width="101" height="44" fill="var(--muted-bg)"/>
-            <rect x="556" y="34" width="398" height="44" fill="var(--pitch-b)"/>
+            <rect x="556" y="34" width="398" height="44" fill="var(--blau)"/>
             <rect x="556" y="34" width="15" height="44" fill="var(--dead)"/>
             <rect x="954" y="34" width="46" height="44" fill="var(--muted-bg)"/>
             <text x="255" y="62" text-anchor="middle" fill="var(--chalk)">1st half · graded</text>
@@ -144,7 +150,7 @@
     <!-- Labels ---------------------------------------------------------------------------------->
     <section class="section alt" id="labels" aria-labelledby="labels-title">
       <div class="section-head">
-        <p class="eyebrow">The alphabet</p>
+        <p class="eyebrow">L'alfabet · The alphabet</p>
         <h2 id="labels-title">Four labels, three states</h2>
       </div>
       <div class="label-grid">
@@ -174,8 +180,8 @@
     <!-- How it works ---------------------------------------------------------------------------->
     <section class="section" id="how" aria-labelledby="how-title">
       <div class="section-head">
-        <p class="eyebrow">How it works</p>
-        <h2 id="how-title">From tracking noise to whole possessions</h2>
+        <p class="eyebrow">Com funciona · How it works</p>
+        <h2 id="how-title">Tiki-taka for tensors: from tracking noise to whole possessions</h2>
         <p>Five stages, numpy and pandas only, about two seconds for the full match once the tracking is cached.</p>
       </div>
 
@@ -232,10 +238,85 @@
       </ol>
     </section>
 
+    <!-- Rondo lab ---------------------------------------------------------------------------->
+    <section class="section rondo-section" id="rondo" aria-labelledby="rondo-title">
+      <div class="section-head">
+        <p class="eyebrow">Rondo lab · Interactive</p>
+        <h2 id="rondo-title">Play the rondo. You move the ball, the model makes the call.</h2>
+        <p>Drag the ball — or the players — anywhere in Barça's attacking half, even over the line. This is the model's
+          per-frame evidence, live: the nearest player of each team, the 1.5 m control kernel,
+          the pass-speed discount, and the out-of-play line. Keyboard: focus the ball and use the
+          arrow keys (Shift = 5 m).</p>
+      </div>
+
+      <div class="rondo">
+        <figure class="rondo-pitch">
+          <svg id="rondo-svg" viewBox="540 0 633 800" role="group" aria-labelledby="rondo-svg-title">
+            <title id="rondo-svg-title">Interactive pitch: move the ball and players to see who the model thinks has possession</title>
+            <defs>
+              <pattern id="rondo-stripes" width="105.3" height="680" patternUnits="userSpaceOnUse" patternTransform="translate(60 60)">
+                <rect width="52.65" height="680" fill="var(--pitch-a)"/>
+                <rect x="52.65" width="52.65" height="680" fill="var(--pitch-b)"/>
+              </pattern>
+              <radialGradient id="kernel-glow">
+                <stop offset="0" stop-color="var(--gold)" stop-opacity="0.35"/>
+                <stop offset="1" stop-color="var(--gold)" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <rect x="540" y="0" width="633" height="800" fill="#0b1433"/>
+            <rect x="60" y="60" width="1053" height="680" fill="url(#rondo-stripes)"/>
+            <g fill="none" stroke="var(--chalk)" stroke-width="3" opacity="0.8" pointer-events="none">
+              <rect x="60" y="60" width="1053" height="680"/>
+              <line x1="586.5" y1="60" x2="586.5" y2="740"/>
+              <circle cx="586.5" cy="400" r="91.5"/>
+              <rect x="60" y="198" width="165" height="404"/>
+              <rect x="948" y="198" width="165" height="404"/>
+              <rect x="60" y="308" width="55" height="184"/>
+              <rect x="1058" y="308" width="55" height="184"/>
+            </g>
+            <rect x="52.5" y="52.5" width="1068" height="695" fill="none" stroke="var(--grana)" stroke-width="2" opacity="0.7" pointer-events="none"/>
+            <text x="856" y="34" text-anchor="middle" fill="var(--ink-soft)" font-size="20">out of play beyond the red line (+0.75 m)</text>
+            <g id="rondo-overlay" pointer-events="none"></g>
+            <g id="rondo-players"></g>
+            <g id="rondo-ball-g" tabindex="0" role="button" aria-label="Ball, use arrow keys to move">
+              <circle id="rondo-ball-glow" r="40" fill="url(#kernel-glow)"/>
+              <circle id="rondo-ball" r="11" fill="var(--chalk)" stroke="#070c1f" stroke-width="3"/>
+            </g>
+          </svg>
+        </figure>
+
+        <div class="rondo-panel">
+          <div class="verdict" aria-live="polite">
+            <span class="verdict-letter" id="rondo-letter">H</span>
+            <span class="verdict-text" id="rondo-text">Home in control</span>
+          </div>
+
+          <div class="meter" aria-hidden="true">
+            <div class="meter-track"><div class="meter-fill" id="rondo-meter"></div><div class="meter-mid"></div></div>
+            <div class="meter-labels"><span>A · Athletic</span><span>neutral</span><span>Barça · H</span></div>
+          </div>
+
+          <dl class="rondo-stats">
+            <div><dt>Nearest home</dt><dd id="rondo-dh">–</dd></div>
+            <div><dt>Nearest away</dt><dd id="rondo-da">–</dd></div>
+            <div><dt>Team evidence / frame</dt><dd id="rondo-ev">–</dd></div>
+            <div><dt>Frames to pay a hand-over</dt><dd id="rondo-frames">–</dd></div>
+          </dl>
+
+          <label class="switch"><input type="checkbox" id="rondo-flight"> Ball in flight (&gt; 9 m/s): evidence × 0.15</label>
+          <div class="rondo-buttons">
+            <button type="button" class="button ghost" id="rondo-shuffle">Shuffle players</button>
+            <button type="button" class="button ghost" id="rondo-corner">Corner kick</button>
+          </div>
+          <p class="note">Same formula as <code>solution/features.py</code>: evidence = 0.35 × (k<sub>H</sub> − k<sub>A</sub>), k = exp(−½(d / 1.5 m)²). Zero evidence keeps the last team — a loose ball does not change possession.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Demo ------------------------------------------------------------------------------------>
     <section class="section alt" id="demo" aria-labelledby="demo-title">
       <div class="section-head">
-        <p class="eyebrow">Interactive</p>
+        <p class="eyebrow">Juego de posición · Interactive</p>
         <h2 id="demo-title">Watch flicker turn into possessions</h2>
         <p>A <strong>synthetic</strong> two-minute match generated in your browser — no match data involved.
           The top row is the made-up truth; below it, the raw nearest-player guess, the majority-vote
@@ -264,6 +345,12 @@
             <svg id="timeline-svg" viewBox="0 0 1000 250" role="img" aria-labelledby="tl-title tl-desc">
               <title id="tl-title">Possession timelines for a synthetic match</title>
               <desc id="tl-desc">Four horizontal bars over the same two minutes: truth, raw nearest player, majority vote baseline and the Viterbi decoder. Colour encodes the label for each frame.</desc>
+              <defs>
+                <pattern id="dead-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <rect width="8" height="8" fill="var(--dead)"/>
+                  <line x1="0" y1="0" x2="0" y2="8" stroke="#7b8090" stroke-width="3"/>
+                </pattern>
+              </defs>
               <g id="timeline-rows"></g>
             </svg>
             <figcaption class="legend">
@@ -285,8 +372,8 @@
     <!-- Metrics --------------------------------------------------------------------------------->
     <section class="section" id="metrics" aria-labelledby="metrics-title">
       <div class="section-head">
-        <p class="eyebrow">Measured, not promised</p>
-        <h2 id="metrics-title">Baseline vs our approach</h2>
+        <p class="eyebrow">El marcador · Measured, not promised</p>
+        <h2 id="metrics-title">The scoreboard: baseline vs Mes Que Un Code</h2>
         <p>Every number below was measured locally with the official scorer, or is published by the
           organisers. The full-match ranking metric needs the private ground truth, so for our system it reads
           <strong>“Run locally with the supplied data”</strong>.</p>
@@ -333,7 +420,7 @@
     <!-- Data constraints ------------------------------------------------------------------------>
     <section class="section alt" id="data" aria-labelledby="data-title">
       <div class="section-head">
-        <p class="eyebrow">Playing by the rules</p>
+        <p class="eyebrow">Fair play · Playing by the rules</p>
         <h2 id="data-title">Data constraints and gated assets</h2>
       </div>
       <div class="three-col">
@@ -361,9 +448,9 @@
     <!-- Team ------------------------------------------------------------------------------------>
     <section class="section" id="team" aria-labelledby="team-title">
       <div class="section-head">
-        <p class="eyebrow">The squad</p>
+        <p class="eyebrow">La plantilla · The squad</p>
         <h2 id="team-title">Team</h2>
-        <p>Edit <code>website/team.js</code> to replace the placeholders.</p>
+        <p>Cinc jugadors, una pilota. Five builders, one question: who has the ball?</p>
       </div>
       <ul class="team-grid" id="team-grid"></ul>
     </section>
@@ -371,7 +458,7 @@
     <!-- Links ----------------------------------------------------------------------------------->
     <section class="section alt" id="links" aria-labelledby="links-title">
       <div class="section-head">
-        <p class="eyebrow">Go deeper</p>
+        <p class="eyebrow">Més enllà · Go deeper</p>
         <h2 id="links-title">Code, rules and how to reproduce</h2>
       </div>
       <ul class="link-grid">
@@ -389,6 +476,7 @@ python evaluation/run_evaluation.py --results solution/results --out solution</c
 
   <footer class="site-footer">
     <p>Mes Que Un Code · More than a Hack 2027, Phase 1. Code under the repository's MIT licence; match data is not included and not redistributed.</p>
+    <p class="footer-motto">Visca el codi. ⚽</p>
     <p>Not affiliated with or endorsed by any club. Team names appear only as they do in the provided data.</p>
   </footer>
 
