@@ -11,8 +11,7 @@ check: spellF1 **0.4444**, macroF1 **0.7362**. The public window contains only
 17 possession spells; private full-match quality is unknown.
 See the [technical report](TECHNICAL_REPORT.md) for details and limitations.
 
-The [fork review](docs/FORK_REVIEW.md) documents the public-fork crawler and
-the optional `v2-shape` profile, including a paired comparison on three other matches.
+Use `--profile v2-shape` to evaluate lateral team spread during gaps in ball tracking.
 
 ## Run the solution
 

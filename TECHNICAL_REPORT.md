@@ -210,6 +210,4 @@ in lateral spread. We calibrate the cue from unambiguous near-ball frames in
 the other half and suppress it if the observed spread difference has the
 wrong sign or either team has fewer than ten sampled contacts. We use the
 challenge match only for automatic inference when the user runs the pipeline.
-The [fork review](docs/FORK_REVIEW.md) records the inspiration, ablation and
-scope of validation. Across twelve paired other-game conditions, mean spellF1
-was 0.5109 for v2 and 0.5289 with the cue.
+We compared v2 and v2-shape on Metrica sample games 1–3 with two seeds per game, both without tags and with simulated noisy tags. Mean spellF1 across the twelve paired conditions was 0.5109 for v2 and 0.5289 for v2-shape. These are measurements on external sample games. The private challenge score is unknown.
