@@ -3,7 +3,7 @@
 #   python -m venv .venv
 #   .venv/Scripts/activate            (Windows)   |   source .venv/bin/activate   (macOS / Linux)
 #   pip install -r requirements-solution.txt
-#   python solution/run_solution.py --output "solution/results/Mes_Que_Un_Code.csv"
+#   python -m solution.code.possession --team Mes_Que_Un_Code --output-dir solution/results/final
 #
 # Python 3.14.6. pandas 3.x needs Python 3.11 or newer; the code itself only uses numpy and
 # pandas APIs that also exist in the unpinned requirements.txt the scorer uses.
