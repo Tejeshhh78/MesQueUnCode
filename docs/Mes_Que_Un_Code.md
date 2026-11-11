@@ -4,7 +4,7 @@
 
 Team **Mes Que Un Code**: Tejesh Simkhada, Valentin Gehrig, Leo Hofmann, Mike Gisler, Maxim Krüger.
 Repository: <https://github.com/Tejeshhh78/MesQueUnCode>, branch `final/submission`.
-Submission file: `Mes_Que_Un_Code.csv` (199,319 rows, SHA-256 `SHA256_PLACEHOLDER`).
+Submission file: `Mes_Que_Un_Code.csv` (199,319 rows, SHA-256 `3e4b381f8e200a10594240ca3e2a528294d48a60c186720699ee019b8fbbff41`).
 
 Submitted model: **controlled** (Valentin Gehrig), made rule-compliant and speed-scale-robust for
 the final (section 3).
