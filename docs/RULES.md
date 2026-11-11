@@ -110,7 +110,7 @@ Two things follow from them that are easy to get wrong:
 - **Do not publish derived data that would reconstruct it.** Frame-level tracking exports, clipped
   video, and similar.
 
-The code and documentation in this repository are separately licensed — see [LICENSE](LICENSE).
+The code and documentation in this repository are separately licensed — see [LICENSE](../LICENSE).
 That licence covers this repository only and says nothing about the match data.
 
 ---

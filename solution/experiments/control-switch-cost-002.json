@@ -1,0 +1,34 @@
+{
+  "id": "control-switch-cost-002",
+  "declared_before_results": true,
+  "date": "2026-10-28",
+  "hypothesis": "Independent development pilot indicates high D recall but many missed control phases. The fixed H/A switching penalty can erase short genuine control; reduce only that penalty while retaining minimum duration and stoppage costs.",
+  "basis": "J03WMX development pilot and generic decoder objective; no competition labels or candidate scores used",
+  "change": "Responsive profile uses incumbent evidence unchanged. Compare H/A switch costs [4,8,12] with incumbent 20; no reliability filter, no training, no other parameter changes.",
+  "candidate_costs": [
+    4.0,
+    8.0,
+    12.0
+  ],
+  "primary_metric": "equal_match_mean_spell_f1_mean",
+  "development": [
+    "DFL-MAT-J03WMX",
+    "DFL-MAT-J03WOH"
+  ],
+  "final_test": [
+    "DFL-MAT-J03WN1",
+    "DFL-MAT-J03WOY"
+  ],
+  "split_selection": "Additional next lexicographic IDs declared before their labels/scores are inspected; previously reserved final remains final.",
+  "minimum_development_matches": 2,
+  "minimum_held_out_matches": 2,
+  "minimum_primary_gain": 0.01,
+  "maximum_macro_f1_loss": 0.005,
+  "maximum_dead_ball_recall_loss": 0.02,
+  "maximum_iou_05_recall_loss": 0.02,
+  "maximum_transition_12_f1_loss": 0.02,
+  "maximum_predict_runtime_ratio": 1.5,
+  "selection": "Among candidates passing mean gain and per-match nonnegative primary gain and secondary regression limits, maximise unweighted mean spellF1; exact ties favour larger switch cost. If none qualify retain incumbent and do not open final labels.",
+  "stopping_rule": "Evaluate three fixed candidates once on development. Freeze selected configuration/source/manifest. Evaluate selected candidate and incumbent once on both reserved final matches. No retuning on final results; failure retains incumbent. No competition public scores for selection or rollback.",
+  "limitations": "Conservative engineering gates, not official requirements or proof of significance. Four games and cleaner provider tracking limit transfer claims. No held-out evaluation until two development matches and synthetic contracts pass."
+}

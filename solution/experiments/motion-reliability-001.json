@@ -1,0 +1,29 @@
+{
+  "id": "motion-reliability-001",
+  "declared_before_results": true,
+  "split_unit": "match",
+  "hypothesis": "An isolated implausible ball location can produce strong team evidence even when speed is discarded; a two-sided physical consistency guard should suppress this unsupported evidence.",
+  "change": "Use the incumbent 45 m/s plausibility bound to reject isolated position spikes, only in an explicit reliable profile; no other parameter change.",
+  "references": [
+    "incumbent",
+    "baseline_smooth50 where input contract permits"
+  ],
+  "primary_metric": "unweighted mean of official spell_f1_mean across independent matches",
+  "promotion_policy": {
+    "minimum_development_matches": 2,
+    "minimum_held_out_matches": 2,
+    "minimum_primary_gain": 0.01,
+    "maximum_macro_f1_loss": 0.005,
+    "maximum_dead_ball_recall_loss": 0.02,
+    "maximum_iou_05_recall_loss": 0.02,
+    "maximum_transition_f1_loss": 0.02,
+    "maximum_runtime_ratio": 1.5,
+    "interpretation": "Conservative project criteria, not official rules or a significance guarantee; report paired uncertainty and individual matches."
+  },
+  "initial_pilot": {
+    "development": "DFL-MAT-J03WMX",
+    "reserved_final_test": "DFL-MAT-J03WN1",
+    "selection_basis": "Lexicographic source match identifiers before evaluating candidates"
+  },
+  "stopping_rule": "Do not promote from the two-game technical pilot. Stop a candidate after falsified synthetic contract or failed independent criteria; do not use competition public scores for decisions. Final-test data remain locked until candidate selection on independent development matches."
+}
