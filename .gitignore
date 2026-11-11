@@ -23,6 +23,8 @@ evaluation/scoreboard.csv
 # -- team solution outputs ----------------------------------------------------------------------
 # Keep team submissions and generated evaluation artifacts local.
 solution/results/*.csv
+# run-output subfolders (CSV, manifest, report copy) are derived from the provided match
+solution/results/*/
 solution/reports/
 solution/scoreboard.csv
 
