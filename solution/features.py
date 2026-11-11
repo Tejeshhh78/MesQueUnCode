@@ -174,13 +174,14 @@ def tag_team_prior(tags: Sequence[TagEvent], n_frames: int, params: Params) -> n
     return prior
 
 
-# -- team-shape evidence (self-supervised) --------------------------------------------------------
+# -- team-shape evidence (model fitted on external games, see calibrate.py) ----------------------
 SHAPE_FEATURES = ("centroid_gap", "home_territory", "away_territory", "length_gap", "width_gap",
                   "home_advance", "away_advance")
 
 
 def team_shape_features(tracking: Tracking, halves: Sequence[Tuple[int, int, int]],
-                        params: Params, fps: int) -> Tuple[np.ndarray, np.ndarray]:
+                        params: Params, fps: int,
+                        pitch: Tuple[float, float]) -> Tuple[np.ndarray, np.ndarray]:
     """(features, valid): collective team-shape descriptors per frame, signed so that + favours H.
 
     The tactical facts they encode: the team with the ball stretches the pitch wide and pushes
@@ -205,7 +206,7 @@ def team_shape_features(tracking: Tracking, halves: Sequence[Tuple[int, int, int
             stats[side] = (np.nanmean(tx, axis=1), np.nanstd(tx, axis=1), np.nanstd(ty, axis=1),
                            np.sum(~np.isnan(tx), axis=1))
     lag = fps  # one second
-    mid = float(np.nanmax(x)) / 2.0 if np.isfinite(np.nanmax(x)) else 0.0
+    mid = pitch[0] / 2.0
     for side in ("home", "away"):
         centroid = stats[side][0]
         advance = np.full(n, np.nan)
@@ -224,26 +225,12 @@ def team_shape_features(tracking: Tracking, halves: Sequence[Tuple[int, int, int
     return feats, valid
 
 
-def silver_team_labels(dist_home: np.ndarray, dist_away: np.ndarray, speed: np.ndarray,
-                       out: np.ndarray, params: Params) -> np.ndarray:
-    """1 where H unambiguously has the ball, 0 for A, -1 otherwise. Produced by a rule, not a
-    person: one team's player on a slow ball and nobody from the other team near it."""
-    near, far = params.silver_near_m, params.silver_far_m
-    home = np.nan_to_num(dist_home, nan=np.inf)
-    away = np.nan_to_num(dist_away, nan=np.inf)
-    slow = np.nan_to_num(speed, nan=np.inf) < params.silver_max_speed
-    labels = np.full(len(home), -1, dtype=np.int8)
-    labels[~out & slow & (home < near) & (away > far)] = 1
-    labels[~out & slow & (away < near) & (home > far)] = 0
-    return labels
-
-
 def fit_logistic(features_: np.ndarray, labels: np.ndarray, l2: float,
                  iterations: int = 25) -> np.ndarray:
     """Weights (bias first) of an L2-regularised logistic regression, by Newton's method.
 
     Deterministic and dependency-free; seven features and a few thousand rows converge in a
-    handful of steps.
+    handful of steps. Used only by calibrate.py, on external games -- never on the provided match.
     """
     design = np.column_stack([np.ones(len(features_)), features_])
     weights = np.zeros(design.shape[1])
@@ -260,19 +247,23 @@ def fit_logistic(features_: np.ndarray, labels: np.ndarray, l2: float,
     return weights
 
 
-def shape_log_odds(tracking: Tracking, halves: Sequence[Tuple[int, int, int]],
-                   silver: np.ndarray, params: Params, fps: int) -> np.ndarray:
-    """Log-odds H over A from team shape, fitted on this match's silver labels. 0 where unknown."""
-    feats, valid = team_shape_features(tracking, halves, params, fps)
-    train = valid & (silver >= 0)
+def shape_log_odds(tracking: Tracking, halves: Sequence[Tuple[int, int, int]], params: Params,
+                   fps: int, pitch: Tuple[float, float]) -> np.ndarray:
+    """Log-odds H over A from team shape with the frozen external model. 0 where unknown.
+
+    The standardisation and weights come from calibration.json (fitted on other matches); nothing
+    is estimated from the match being labelled.
+    """
     out = np.zeros(tracking.n_frames)
-    if train.sum() < params.shape_min_training_frames or len(np.unique(silver[train])) < 2:
+    if not params.shape_weights:
         return out
-    mean = feats[train].mean(axis=0)
-    std = feats[train].std(axis=0)
-    std[std == 0] = 1.0
-    weights = fit_logistic((feats[train] - mean) / std, silver[train].astype(np.float64),
-                           params.shape_l2)
+    if len(params.shape_weights) != len(SHAPE_FEATURES) + 1:
+        raise ValueError("calibration has {} shape weights, expected {}".format(
+            len(params.shape_weights), len(SHAPE_FEATURES) + 1))
+    feats, valid = team_shape_features(tracking, halves, params, fps, pitch)
+    mean = np.asarray(params.shape_mean)
+    std = np.asarray(params.shape_std)
+    weights = np.asarray(params.shape_weights)
     z = (feats[valid] - mean) / std
     out[valid] = np.clip(weights[0] + z @ weights[1:], -params.shape_clip, params.shape_clip)
     return out
@@ -386,8 +377,7 @@ def build_evidence(match: MatchData, params: Params, pitch: Tuple[float, float],
 
     # Team shape speaks only where the ball cannot: on frames with no ball position.
     if params.shape_evidence > 0:
-        silver = silver_team_labels(dist_home, dist_away, speed, out, params)
-        shape = shape_log_odds(tracking, match.halves, silver, params, fps)
+        shape = shape_log_odds(tracking, match.halves, params, fps, pitch)
         team[~known] += params.shape_evidence * shape[~known]
 
     # Homography: where the camera-to-pitch fit is poor, positions are less trustworthy.

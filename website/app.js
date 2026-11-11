@@ -374,33 +374,34 @@
     var data = window.MQUC_METRICS;
     if (!data) return;
     var tbody = document.getElementById("metrics-body");
+    function cell(text, unavailable) {
+      var td = html("td", {}, text);
+      if (unavailable) td.className = "unavailable";
+      return td;
+    }
     data.systems.forEach(function (s) {
       var tr = html("tr", s.kind === "ours" ? { "class": "ours" } : {});
       tr.appendChild(html("th", { scope: "row" }, s.label));
-      tr.appendChild(html("td", {}, s.public.macroF1.toFixed(4)));
-      tr.appendChild(html("td", {}, s.public.spellF1.toFixed(4) + " [" + s.public.spellCI[0].toFixed(2) + "–" + s.public.spellCI[1].toFixed(2) + "]"));
-      tr.appendChild(html("td", {}, String(s.public.poss)));
-      var full = html("td", {}, s.fullMatch.spellF1 === null ? "Run locally with the supplied data" : s.fullMatch.spellF1.toFixed(4) + " (published)");
-      if (s.fullMatch.spellF1 === null) full.className = "unavailable";
-      tr.appendChild(full);
-      tr.appendChild(html("td", {}, String(s.fullMatch.possessions)));
-      tr.appendChild(html("td", {}, s.fullMatch.meanPossS.toFixed(1) + " s"));
-      tr.appendChild(html("td", {}, s.fullMatch.shareD.toFixed(1) + "%"));
+      tr.appendChild(cell(s.external.spellF1.toFixed(4)));
+      tr.appendChild(cell(s.external.macroF1.toFixed(4)));
+      tr.appendChild(s.external.possRatio === null ? cell("–", true)
+                                                   : cell(s.external.possRatio.toFixed(2) + "×"));
+      tr.appendChild(s.publishedFullMatch === null
+        ? cell("Scored privately by the organisers", true)
+        : cell(s.publishedFullMatch.toFixed(4) + " (published)"));
       tbody.appendChild(tr);
     });
 
+    var ticks = [0, 0.25, 0.5, 0.75, 1];
+    var tickFmt = function (v) { return v === 0 ? "0" : v.toFixed(2); };
     barChart(document.getElementById("chart-public"), data.systems.map(function (s) {
-      return { label: s.label, short: s.short, value: s.public.spellF1, ci: s.public.spellCI,
-               ours: s.kind === "ours",
-               tip: "spellF1 " + s.public.spellF1.toFixed(3) + " · 5–95% interval " +
-                    s.public.spellCI[0].toFixed(2) + "–" + s.public.spellCI[1].toFixed(2) };
-    }), [0, 0.25, 0.5, 0.75, 1], function (v) { return v.toFixed(3); },
-       function (v) { return v === 0 ? "0" : v.toFixed(2); });
+      return { label: s.label, short: s.short, value: s.external.spellF1, ours: s.kind === "ours",
+               tip: "spellF1 " + s.external.spellF1.toFixed(3) + " on external games" };
+    }), ticks, function (v) { return v.toFixed(3); }, tickFmt);
     barChart(document.getElementById("chart-poss"), data.systems.map(function (s) {
-      return { label: s.label, short: s.short, value: s.fullMatch.possessions, ours: s.kind === "ours",
-               tip: s.fullMatch.possessions + " possessions · mean " + s.fullMatch.meanPossS.toFixed(1) + " s" };
-    }), [0, 500, 1000, 1500, 2000], function (v) { return String(v); },
-       function (v) { return v >= 1000 ? (v / 1000) + "K" : String(v); });
+      return { label: s.label, short: s.short, value: s.external.macroF1, ours: s.kind === "ours",
+               tip: "macroF1 " + s.external.macroF1.toFixed(3) + " on external games" };
+    }), ticks, function (v) { return v.toFixed(3); }, tickFmt);
   }
 
   // One shared tooltip for every chart: follows the pointer, or sits on a keyboard-focused bar.
@@ -520,7 +521,7 @@
   /* -- Rondo lab: the model's per-frame evidence, live ---------------------------------------- */
   // Pitch coordinates in metres; the SVG draws 10 px per metre from (60, 60).
   var PITCH_L = 105.3, PITCH_W = 68, PX = 10, ORIGIN = 60;
-  var SIGMA = 1.5, TEAM_EVIDENCE = 0.35, FLIGHT_WEIGHT = 0.15, OUT_MARGIN = 0.75, SWITCH_COST = 4;
+  var SIGMA = 1.0, TEAM_EVIDENCE = 0.35, FLIGHT_WEIGHT = 0.15, OUT_MARGIN = 0.75, SWITCH_COST = 1;
 
   function setupRondo() {
     var svg = document.getElementById("rondo-svg");
@@ -533,7 +534,7 @@
     var text = document.getElementById("rondo-text");
     var meter = document.getElementById("rondo-meter");
     var rand = mulberry32(10);
-    var ball = { x: 70.8, y: 25.6 };   // kick off at a Barça player's feet
+    var ball = { x: 70.4, y: 25.3 };   // kick off at a Barça player's feet
     var MIN_X = 50;   // the board shows the attacking half, from just behind halfway
     var players = [];
     var lastTeam = H, lastState = null;

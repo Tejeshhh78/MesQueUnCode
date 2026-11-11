@@ -1,0 +1,14 @@
+# Exact environment the Mes Que Un Code submission was generated and verified with.
+#
+#   python -m venv .venv
+#   .venv/Scripts/activate            (Windows)   |   source .venv/bin/activate   (macOS / Linux)
+#   pip install -r requirements-solution.txt
+#   python solution/run_solution.py --output "solution/results/Mes_Que_Un_Code.csv"
+#
+# Python 3.14.6. pandas 3.x needs Python 3.11 or newer; the code itself only uses numpy and
+# pandas APIs that also exist in the unpinned requirements.txt the scorer uses.
+numpy==2.3.5
+pandas==3.0.1
+python-dateutil==2.9.0.post0
+six==1.17.0
+tzdata==2026.5

@@ -244,7 +244,7 @@
         <p class="eyebrow">Rondo lab · Interactive</p>
         <h2 id="rondo-title">Play the rondo. You move the ball, the model makes the call.</h2>
         <p>Drag the ball — or the players — anywhere in Barça's attacking half, even over the line. This is the model's
-          per-frame evidence, live: the nearest player of each team, the 1.5 m control kernel,
+          per-frame evidence, live: the nearest player of each team, the 1.0 m control kernel,
           the pass-speed discount, and the out-of-play line. Keyboard: focus the ball and use the
           arrow keys (Shift = 5 m).</p>
       </div>
@@ -308,7 +308,7 @@
             <button type="button" class="button ghost" id="rondo-shuffle">Shuffle players</button>
             <button type="button" class="button ghost" id="rondo-corner">Corner kick</button>
           </div>
-          <p class="note">Same formula as <code>solution/features.py</code>: evidence = 0.35 × (k<sub>H</sub> − k<sub>A</sub>), k = exp(−½(d / 1.5 m)²). Zero evidence keeps the last team — a loose ball does not change possession.</p>
+          <p class="note">Same formula as <code>solution/features.py</code>: evidence = 0.35 × (k<sub>H</sub> − k<sub>A</sub>), k = exp(−½(d / 1.0 m)²). Zero evidence keeps the last team — a loose ball does not change possession.</p>
         </div>
       </div>
     </section>
@@ -374,24 +374,25 @@
       <div class="section-head">
         <p class="eyebrow">El marcador · Measured, not promised</p>
         <h2 id="metrics-title">The scoreboard: baseline vs Mes Que Un Code</h2>
-        <p>Every number below was measured locally with the official scorer, or is published by the
-          organisers. The full-match ranking metric needs the private ground truth, so for our system it reads
-          <strong>“Run locally with the supplied data”</strong>.</p>
+        <p>The rules say anything tuned must be tuned on external data, so that is where we measure too:
+          Metrica's three public sample games, labels from their own events, tracking degraded to look like
+          the competition's, scored with the official metric code. Each game is scored by a model tuned on the
+          other two. Our full-match score on the real match is <strong>scored privately by the organisers</strong>.</p>
       </div>
 
       <div class="two-col">
         <figure class="card chart-card">
-          <figcaption><h3>Public 5-minute window — spellF1</h3>
-            <p class="note">17 possessions. Bars show the scorer's 5–95% bootstrap interval; they overlap, so this is a pipeline check, not a ranking.</p></figcaption>
-          <svg id="chart-public" viewBox="0 0 480 260" role="img" aria-labelledby="chart-public-title">
-            <title id="chart-public-title">spellF1 on the public window, with bootstrap intervals</title>
+          <figcaption><h3>External games — spellF1</h3>
+            <p class="note">The ranking metric: whole possessions recovered. Tuning on external games took us from 0.466 to 0.540; the baseline scores 0.259 on the same tracking.</p></figcaption>
+          <svg id="chart-public" viewBox="0 0 480 200" role="img" aria-labelledby="chart-public-title">
+            <title id="chart-public-title">spellF1 on external games for the baseline and our model</title>
           </svg>
         </figure>
         <figure class="card chart-card">
-          <figcaption><h3>Full match — possessions claimed</h3>
-            <p class="note">No labels needed: how many possessions each system reports over all 158,857 graded frames. Fewer, longer spells is what spellF1 rewards — up to a point.</p></figcaption>
-          <svg id="chart-poss" viewBox="0 0 480 260" role="img" aria-labelledby="chart-poss-title">
-            <title id="chart-poss-title">Number of possessions predicted over the full match</title>
+          <figcaption><h3>External games — macroF1</h3>
+            <p class="note">The tie-break metric: the right label on the right frame, averaged over H, A and D.</p></figcaption>
+          <svg id="chart-poss" viewBox="0 0 480 200" role="img" aria-labelledby="chart-poss-title">
+            <title id="chart-poss-title">macroF1 on external games for the baseline and our model</title>
           </svg>
         </figure>
       </div>
@@ -401,20 +402,18 @@
           <thead>
             <tr>
               <th scope="col">System</th>
-              <th scope="col">Public macroF1</th>
-              <th scope="col">Public spellF1</th>
-              <th scope="col">Public poss. <span class="th-sub">(truth 17)</span></th>
-              <th scope="col">Full-match spellF1</th>
-              <th scope="col">Full-match poss.</th>
-              <th scope="col">Mean poss.</th>
-              <th scope="col">D share</th>
+              <th scope="col">External spellF1</th>
+              <th scope="col">External macroF1</th>
+              <th scope="col">Possessions found <span class="th-sub">(vs truth)</span></th>
+              <th scope="col">Full-match spellF1 <span class="th-sub">(real match)</span></th>
             </tr>
           </thead>
           <tbody id="metrics-body"></tbody>
         </table>
       </div>
-      <p class="note">Full-match spellF1 for the baselines is published in EVALUATION.md. Reproduce everything with
-        <code>python solution/experiments.py</code>.</p>
+      <p class="note">The baseline's full-match spellF1 is published in EVALUATION.md; it scores 0.24–0.28 on
+        the external games, so they look like a fair proxy. Reproduce with
+        <code>python solution/evaluate_external.py</code> and <code>python solution/tune_external.py</code>.</p>
     </section>
 
     <!-- Data constraints ------------------------------------------------------------------------>
@@ -431,10 +430,10 @@
             pipeline stops with setup instructions; the scorer still runs on the public CSVs.</p>
         </article>
         <article class="card">
-          <h3>No hand labels, no tuning on truth</h3>
-          <p>Parameters come from football physics and <em>silver labels</em> produced by rules — e.g. “ball visibly
-            out of the pitch” — never from a person and never from the ground truth. The public 5 minutes check
-            the pipeline; they choose nothing.</p>
+          <h3>Tuned on other matches only</h3>
+          <p>Everything fitted or tuned uses external data: Metrica's public sample games. On the real match the
+            model only applies those values — a test fails if anything is fitted there. No hand labels, no
+            tuning on the ground truth, no video; the public 5 minutes only check that the pipeline is correct.</p>
         </article>
         <article class="card">
           <h3>Noisy by design</h3>

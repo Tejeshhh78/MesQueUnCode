@@ -50,7 +50,7 @@ SOLUTION_VARIANTS: Tuple[Tuple[str, Dict[str, float], bool], ...] = (
     ("ablate_no_dead_model", {"out_evidence": 0.0, "motion_evidence": 0.0,
                               "stationary_evidence": 0.0, "set_piece_dead_evidence": 0.0,
                               "moving_ball_evidence": 0.0}, True),
-    ("ablate_low_hysteresis", {"switch_cost": 1.0, "min_spell_seconds": 0.0}, True),
+    ("ablate_pre_tuning_priors", {"control_sigma_m": 1.5, "switch_cost": 4.0}, True),
 )
 
 

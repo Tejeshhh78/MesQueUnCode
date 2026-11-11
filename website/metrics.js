@@ -1,40 +1,36 @@
 /*
- * Numbers shown in the Metrics section. Every value here was measured locally or is published by
- * the organisers -- nothing is estimated. Regenerate with:
+ * Numbers shown in the Metrics section. Every value here was measured on EXTERNAL games or is
+ * published by the organisers -- nothing is estimated, and nothing comes from the provided match.
+ * Regenerate with:
  *
- *   python solution/experiments.py
- *   python evaluation/run_evaluation.py --bootstrap 1000
+ *   python solution/evaluate_external.py
+ *   python solution/tune_external.py
  *
- * `public` = the 5-minute public window (17 possessions). A pipeline check, NOT a ranking:
- *            EVALUATION.md shows it orders even the baselines wrongly. Intervals are the scorer's
- *            5-95% bootstrap over 1000 draws.
- * `fullMatch` = all 158,857 graded frames. The ranking metric needs the private ground truth,
- *            so spellF1 there is known only for the baseline (published by the organisers).
- *            Possession counts need no labels and were measured locally.
+ * `external` = Metrica Sports' three public sample games, labels derived from their own events,
+ *              tracking degraded towards the automatic ATD, scored with the official metric code.
+ *              spellF1 for the tuned model is the nested leave-one-game-out figure: each game is
+ *              scored by a model whose costs were chosen on the other two. possRatio = predicted /
+ *              true possessions.
+ * `publishedFullMatch` = the organisers' published full-match spellF1 (EVALUATION.md). Our own is
+ *              scored privately by the organisers, so it stays null.
  */
 window.MQUC_METRICS = {
-  measuredOn: "2026-11-02",
+  measuredOn: "2026-11-04",
   systems: [
     {
-      id: "baseline_raw", label: "Baseline, raw", short: "Baseline raw", kind: "baseline",
-      public: { macroF1: 0.5972, spellF1: 0.0378, spellCI: [0.019, 0.059], poss: 131 },
-      fullMatch: { spellF1: 0.0486, possessions: 1949, meanPossS: 1.9, shareD: 40.7 }
+      id: "baseline_smooth50", label: "Baseline, ±50 vote (published floor)", short: "Baseline ±50", kind: "baseline",
+      external: { spellF1: 0.2585, macroF1: 0.6558, possRatio: null },
+      publishedFullMatch: 0.2433
     },
     {
-      id: "baseline_smooth50", label: "Baseline, ±50 vote (published floor)", short: "Baseline ±50 (floor)", kind: "baseline",
-      public: { macroF1: 0.6207, spellF1: 0.3256, spellCI: [0.214, 0.447], poss: 26 },
-      fullMatch: { spellF1: 0.2433, possessions: 594, meanPossS: 7.2, shareD: 32.3 }
+      id: "ours_priors", label: "Mes Que Un Code, hand-picked costs", short: "Ours, untuned", kind: "baseline",
+      external: { spellF1: 0.4663, macroF1: 0.8486, possRatio: 0.48 },
+      publishedFullMatch: null
     },
     {
-      id: "baseline_smooth125", label: "Baseline, ±125 vote", short: "Baseline ±125", kind: "baseline",
-      public: { macroF1: 0.5812, spellF1: 0.4242, spellCI: [0.267, 0.594], poss: 16 },
-      fullMatch: { spellF1: 0.2242, possessions: 398, meanPossS: 12.4, shareD: 22.3 }
-    },
-    {
-      id: "mes_que_un_code", label: "Mes Que Un Code (ours)", short: "Mes Que Un Code", kind: "ours",
-      public: { macroF1: 0.8344, spellF1: 0.4714, spellCI: [0.257, 0.671], poss: 11 },
-      fullMatch: { spellF1: null, possessions: 202, meanPossS: 18.9, shareD: 39.9 }
+      id: "ours_tuned", label: "Mes Que Un Code, tuned on external games (submitted)", short: "Mes Que Un Code", kind: "ours",
+      external: { spellF1: 0.5396, macroF1: 0.8563, possRatio: 0.66 },
+      publishedFullMatch: null
     }
-  ],
-  publicTruth: { possessions: 17, meanPossS: 14.2 }
+  ]
 };

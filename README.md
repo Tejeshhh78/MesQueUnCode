@@ -158,14 +158,14 @@ documentation next to the challenge's in [`docs/`](docs/). The organisers' `star
 
 **How it works, in one paragraph.** Every source is aligned to the tactical video. Per frame, the
 model scores *who could be playing the ball* (nearest player of each team, discounted for a ball in
-flight, plus weak Smart Tagging and self-supervised team-shape priors) and *whether the ball is
+flight, plus weak Smart Tagging priors and a team-shape prior fitted on external games) and *whether the ball is
 dead* (ball past a line, walking players, a ball placed for a restart, set-piece tags, forced `D`
 before each kick-off). A three-state Viterbi decoder then turns that evidence into whole
 possessions, paying an explicit price for every hand-over and every stoppage — hysteresis done
 exactly, which is what `spellF1` rewards. Details: [docs/MODEL.md](docs/MODEL.md).
 
 ```bash
-pip install -r requirements.txt                                  # numpy + pandas, nothing else
+pip install -r requirements-solution.txt                         # pinned numpy + pandas we built with
 
 # 1. data: unpack the gated bundle into ./data, or point MTAH_DATA_DIR at it
 # 2. generate the submission (≈10 s first run, ≈2 s once the tracking cache exists)
@@ -191,17 +191,22 @@ with the reason.
 
 | doc | what |
 |---|---|
+| [docs/Mes_Que_Un_Code.md](docs/Mes_Que_Un_Code.md) | **the technical document we submit** |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | repository layout, data flow, frame alignment, tactical vs broadcast |
 | [docs/MODEL.md](docs/MODEL.md) | the model, every possession rule, parameters, limitations |
 | [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) | measured results and how far to trust them |
 | [docs/WEBSITE.md](docs/WEBSITE.md) | running, editing and deploying the team site |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | common errors and fixes |
 
-**Measured so far** (details and caveats in [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)): on the
-public 5 minutes, macroF1 0.834 and spellF1 0.471 against 0.621 / 0.326 for the published
-`baseline_smooth50` — but the spellF1 bootstrap intervals overlap, so that is a pipeline check, not
-evidence of a better rank. Over the full match the solution reports 202 possessions (baseline:
-594) with a 39.9% dead-ball share. Full-match spellF1 needs the private ground truth.
+**Rule compliance.** Following the organisers' clarification, everything fitted or tuned uses
+external data only: Metrica Sports' public sample games (`solution/calibrate.py`,
+`solution/tune_external.py`). On the provided match the model only applies those values; a test
+fails if anything is fitted at inference time. The public 5 minutes are used only for correctness
+checks.
+
+**Measured** (details in [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)): on the external games, with
+each game scored by a model not tuned on it, spellF1 **0.540** against 0.259 for `baseline_smooth50`
+on the same tracking. Full-match spellF1 on the provided match needs the private ground truth.
 
 ---
 

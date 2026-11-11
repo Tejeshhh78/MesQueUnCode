@@ -133,11 +133,39 @@ class ShapeModelTest(unittest.TestCase):
         self.assertGreater(weights[1], 1.0)
         self.assertLess(abs(weights[2]), abs(weights[1]))
 
-    def test_too_few_silver_frames_give_no_shape_evidence(self):
+    def test_no_shape_model_gives_no_shape_evidence(self):
         match = helpers.make_match()
-        silver = np.full(match.tracking.n_frames, -1, dtype=np.int8)
-        out = features.shape_log_odds(match.tracking, match.halves, silver, PARAMS, 25)
+        params = PARAMS.with_overrides(shape_mean=(), shape_std=(), shape_weights=())
+        out = features.shape_log_odds(match.tracking, match.halves, params, 25, helpers.PITCH)
         np.testing.assert_array_equal(out, 0.0)
+
+    def test_malformed_shape_model_is_an_error(self):
+        match = helpers.make_match()
+        params = PARAMS.with_overrides(shape_weights=(0.1, 0.2))
+        with self.assertRaises(ValueError):
+            features.shape_log_odds(match.tracking, match.halves, params, 25, helpers.PITCH)
+
+
+class RuleComplianceTest(unittest.TestCase):
+    """The organisers' clarification: nothing may be fitted or tuned on the provided match."""
+
+    def test_inference_never_fits_anything(self):
+        def refuse(*args, **kwargs):
+            raise AssertionError("fit_logistic was called at inference time")
+        original = features.fit_logistic
+        features.fit_logistic = refuse
+        try:
+            features.build_evidence(helpers.possession_script(), PARAMS, helpers.PITCH)
+        finally:
+            features.fit_logistic = original
+
+    def test_calibration_comes_from_external_data(self):
+        provenance = config.CALIBRATION["provenance"]
+        self.assertFalse(provenance["provided_match_used"])
+        self.assertIn("metrica-sports/sample-data", provenance["data"])
+        self.assertEqual(len(config.CALIBRATION["shape"]["weights"]), len(features.SHAPE_FEATURES) + 1)
+        self.assertEqual(tuple(config.CALIBRATION["shape"]["weights"]), PARAMS.shape_weights)
+        self.assertEqual(config.CALIBRATION["motion"]["still_speed"], PARAMS.still_speed)
 
 
 if __name__ == "__main__":
