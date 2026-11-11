@@ -11,6 +11,7 @@
 window.MQUC_TEAM = [
   {
     name: "Tejesh Simkhada",
+    role: "Integration, rule compliance, website",
     github: "Tejeshhh78",
     links: [
       { label: "GitHub", href: "https://github.com/Tejeshhh78" },
@@ -19,6 +20,7 @@ window.MQUC_TEAM = [
   },
   {
     name: "Valentin Gehrig",
+    role: "The submitted controlled model",
     github: "ValentinGehrig",
     links: [
       { label: "GitHub", href: "https://github.com/ValentinGehrig" },
@@ -27,6 +29,7 @@ window.MQUC_TEAM = [
   },
   {
     name: "Leo Hofmann",
+    role: "Other-match validation harness",
     github: "InvictusAzazel",
     links: [
       { label: "GitHub", href: "https://github.com/InvictusAzazel" },
@@ -35,6 +38,7 @@ window.MQUC_TEAM = [
   },
   {
     name: "Mike Gisler",
+    role: "Baseline analysis",
     github: "GamerNickGt",
     links: [
       { label: "GitHub", href: "https://github.com/GamerNickGt" },

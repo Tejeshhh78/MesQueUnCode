@@ -3,174 +3,159 @@
 **More than a Hack 2027 · Phase 1: Ball Possession**
 
 Team **Mes Que Un Code**: Tejesh Simkhada, Valentin Gehrig, Leo Hofmann, Mike Gisler, Maxim Krüger.
-Repository: <https://github.com/Tejeshhh78/MesQueUnCode>, branch `dev-TS/Setup`.
-Submission file: `Mes_Que_Un_Code.csv` (199,319 rows, SHA-256
-`8c85d42627fb1af55d444dc61708ea12544e2a49dc831701d126186c2673d088`).
+Repository: <https://github.com/Tejeshhh78/MesQueUnCode>, branch `final/submission`.
+Submission file: `Mes_Que_Un_Code.csv` (199,319 rows, SHA-256 `SHA256_PLACEHOLDER`).
+
+Submitted model: **controlled** (Valentin Gehrig), made rule-compliant and speed-scale-robust for
+the final (section 3).
 
 ---
 
 ## 1. Approach
 
-The ranking metric, spellF1, scores each possession as one interval matched by temporal IoU. One
-wrong frame inside a long possession splits it in two: the true spell loses its match and a false
-spell appears. So we did not build a per-frame classifier; we built a **segmenter**.
+spellF1 scores each possession as one interval matched by temporal IoU, so a single wrong frame
+inside a long possession splits it in two. We therefore built a **segmenter**: per-frame evidence
+for each of the three states, then an exact Viterbi decoder that pays a fixed cost for every change
+of state.
 
-1. **Per-frame evidence.** For every video frame, two log-odds scores: *which team could be playing
-   the ball* (`team`, + favours home) and *whether the ball is dead* (`dead`, + favours D). Zero means
-   "no information", which is the honest value on the 41% of graded frames with no ball.
-2. **Three-state Viterbi decoder (H, A, D).** Per half, it finds the label sequence that maximises
-   the summed evidence minus a fixed cost for every change of state: 1.0 nats for a hand-over, 3.0
-   for the ball going dead, 3.0 for play restarting. A hand-over happens only when the new team's
-   accumulated evidence pays for it, and it is placed where the evidence turns, with no lag. Zero
-   evidence carries the current state — the challenge's rule that a loose ball stays with the last
-   team.
-3. **Clean-up.** Possession spells under 1 s are absorbed by their neighbours; dead-ball blips under
-   1 s inside one team's possession are bridged (`H D H` would otherwise count as two possessions).
-4. **Output.** `H`/`A`/`D` on every graded frame, `X` on ungraded frames (before kick-off, halftime,
-   after the whistle). The file is validated with the official checks before the run reports success.
+**Team evidence** — who controls the ball:
 
-**Why this and not something else.** A decoder with explicit change costs optimises the thing the
-metric counts, and every parameter has a physical meaning, so the handful that need tuning can be
-tuned on other matches and carried over.
+* nearest player of each team to the ball, in pitch metres, with a soft 0.6 m touch-reach margin
+  and a 1.8 m Gaussian close-control envelope;
+* damping when the ball moves much faster than the nearest player (a pass passing by, not a touch);
+* multi-window directional persistence (0.28 s), so a brief proximity does not flip ownership;
+* a loose-ball retention state (2.5 s while live, 0.35 s after a stoppage), so a ball in flight keeps
+  the last verified team rather than flipping to a nearby opponent;
+* Smart Tagging as soft support: attacking phases support their named team, defensive phases the
+  opponent, correlated tags combined by maximum. Tags never directly produce output labels.
+
+**Live/dead evidence:** collective player movement (section 3), ball movement, how much of the
+ball is observed, a stationary ball with slow players, ball positions outside the pitch, and soft
+restart evidence from automatic set-piece windows. A missing ball is never treated as dead by
+itself; gaps up to 0.32 s are interpolated for movement only.
+
+**Decoder:** an exact offline Viterbi per half. A hand-over H↔A costs 12, entering or leaving D
+costs 24, and internal states last at least 0.32 s. Frames outside the published halves are `X`.
 
 ## 2. Assets used, and dropped
 
 | asset | used | how |
 |---|---|---|
-| Tactical ATD (tracking) | **yes**, as input | ball and player positions in metres; nearest player per team; ball speed; player motion; team shape |
-| Smart Tagging | **yes**, as input | weak team prior from possession phases; dead-ball prior at set-piece starts; kick-off windows |
-| Tactical homography | **yes, lightly**, as input | where reprojection error > 5 px, team evidence is halved |
-| ATD metadata | **yes**, as input | team of each track slot; home team's attacking direction per half |
-| `games.py` | **yes** | graded half boundaries (`half_video_blocks`) and asset paths |
-| Metrica Sports public sample games | **yes, external** | the only data anything was fitted or tuned on — see section 3 |
-| Broadcast video / ATD / homography | **dropped** | own 164,488-frame timeline, cuts and replays, no mapping to tactical |
-| Tactical video | **not used** | not as input, not for checking outputs |
+| Tactical ATD (tracking) | input | ball and player positions; team of each track slot |
+| Smart Tagging | input | soft team support and restart evidence |
+| `games.py` | input | graded half boundaries, asset paths |
+| Metrica Sports public sample games | **external** | fitting the movement regimes; evaluation (section 4) |
+| DFL/IDSSE open dataset (CC BY 4.0) | **external** | Valentin's model selection (section 4) |
+| Tactical homography | not used by the submitted model | — |
+| Broadcast video / ATD / homography | dropped | own timeline with cuts and replays; a camera check recovered none of the tactical ball gaps |
+| Tactical video | not used | not as input, not for checking outputs |
 
-**Frame alignment.** Submission row *i* is tactical video frame *i*. ATD `frame_id` runs 1…199,319,
-so `video = frame_id − 1`. Smart Tagging is in seconds, so `video = round(seconds × 25)`. The
-per-half IdFrame offsets in `games.py` belong to the hidden counter the ground truth was derived from
-and are never added to the tracking. Rebuilding the four reference baselines from our loader
-reproduces `starter/baseline.py`'s files byte for byte.
+Frame alignment: submission row *i* is tactical video frame *i*; ATD `frame_id` − 1 = video frame;
+Smart Tagging seconds × 25 = video frame. The per-half IdFrame offsets in `games.py` belong to the
+hidden ground-truth counter and are never added to the tracking.
 
-## 3. Training, fitting and tuning data
+## 3. Training, fitting and tuning — external data only
 
-Following the organisers' rule clarification, **everything that is fitted or tuned uses external
-data only.** Nothing is trained, fitted, calibrated or tuned on the provided match, its video or its
-ground truth.
+The organisers' rule clarification: anything trained, fitted, calibrated or tuned must use external
+data only — never the ground truth possession data, never the provided match or video.
 
-**External data:** Metrica Sports' three public sample games
-(<https://github.com/metrica-sports/sample-data>, © Metrica Sports, shared for the football
-analytics community with acknowledgement). They are other, anonymised matches with tracking and
-event data.
+* **The only fitted part — two movement regimes** (slow and fast collective movement) — is fitted
+  by unsupervised EM on **Metrica Sports' three public sample games**
+  (<https://github.com/metrica-sports/sample-data>, © Metrica Sports, shared for the analytics
+  community with acknowledgement), with tracking degraded towards the automatic ATD. The result
+  is committed in `solution/code/possession/activity_calibration.json` and **only applied** on the
+  provided match. Valentin's original model fitted these regimes on each input match; for the final
+  this was moved to external data.
+* **Speed-scale robustness.** Regimes fitted on one tracker's speeds broke when applied to speeds of
+  a different scale (measured on external games: spellF1 0.542 → 0.417). Collective movement is
+  therefore computed by our own code from player *positions* over a one-second window
+  (`motion.py`), identically on the external games and the provided match, instead of the ATD's
+  speed field. With that feature, a calibration carried across speed scales scored 0.542.
+* **The H↔A cost of 12** was selected by Valentin under a predeclared protocol on the DFL/IDSSE open
+  dataset (Bassek, Rein, Weber & Memmert 2025, *Scientific Data* 12, 195; CC BY 4.0), using the
+  provider's ball-status and possession fields of those Bundesliga games — other matches.
+* All other values are fixed design choices. No parameter was set from the provided match, its
+  video or its ground truth; the public 5 minutes were used only for automatic correctness checks.
+* Tests fail if anything is fitted at inference time, or if the calibration does not declare
+  external provenance (`solution/tests/test_controlled_compliance.py`).
 
-* **Labels** for those games are derived mechanically from each game's own event data (owner = team
-  of the latest on-ball action; dead from ball-out, foul, offside or goal to the next restart). No
-  person labelled anything.
-* **Tracking** is degraded towards the competition's automatic tracking (ball missing on about 35%
-  of live frames, bursty and more often in crowds, positional noise, player dropouts).
-* The loader, labeller and degradation are Leo Hofmann's validation harness
-  (`solution/external/`).
+No hand labels on any game; no human-produced data about the provided game; no pretrained models.
 
-| what | fitted / tuned how | held-out check (game not used for fitting) |
-|---|---|---|
-| dead-ball motion curve: centre 1.367 m/s, scale 0.601 | logistic regression of dead ball on smoothed mean player speed (`calibrate.py`) | 82–86% correct vs majority 57–69% |
-| team-shape model: 7 weights + standardisation | logistic regression of home possession on team width, length, territory and forward movement (`calibrate.py`) | 82–83% correct (76–81% when the ball is missing) vs majority 51–53% |
-| control radius 1.0 m, hand-over cost 1.0, minimum possession 1.0 s | grid search with the official metric code (`tune_external.py`) | nested leave-one-game-out spellF1 0.540 vs 0.466 for the hand-picked values |
+## 4. How we chose the model, and how good it is
 
-The fitted values are stored in `solution/calibration.json` and the tuned values in
-`solution/config.py`. On the provided match they are **only applied**. A unit test,
-`test_inference_never_fits_anything`, fails if any fitting routine runs at inference time.
+We compared the team's model lines on **identical** external games — Metrica's three sample games,
+two degradation seeds each, labels from each game's own events — with the official metric code.
+Each model was scored on games it was not fitted or tuned on wherever it had been fitted or tuned
+on these games:
 
-All other parameters are fixed design values from football and physics (pitch geometry, pass and
-dribble speeds, line widths), stated in `solution/config.py`. Smart Tagging exists only for the
-provided match, so its codes were chosen by their meaning and its weights are small fixed priors;
-they were not tuned. The public 5-minute ground truth was used only for automatic correctness checks
-of the pipeline.
+| model | author | spellF1 | macroF1 | possessions found |
+|---|---|---:|---:|---:|
+| baseline_smooth50 (organisers' starter) | – | 0.259 | 0.656 | – |
+| v2 (tuned on these games by its author) | Leo Hofmann | 0.510 | 0.843 | 0.65× |
+| v2-shape | Valentin Gehrig | 0.528 | 0.851 | 0.67× |
+| Viterbi + team shape, tuned on the other two games | Tejesh Simkhada | 0.540 | 0.855 | 0.70× |
+| **controlled, as submitted (regimes from the other two games)** | Valentin Gehrig | **0.543** | 0.839 | **0.76×** |
 
-**No other data:** no hand labels on any game, no event data or corrected tracking of the provided
-game, no pretrained models.
+Controlled and Tejesh's model tie within noise on these games. We submit controlled because it
+needs no tuning on these games, finds the most possessions, is robust to speed scale by
+construction, and was independently validated by Valentin on real tracking: on two unseen IDSSE
+matches its spellF1 was 0.529 against 0.442 for its predecessor (his predeclared protocol, with the
+original per-match regime fit; the frozen variant was not re-run on IDSSE).
 
-## 4. Possession rules implemented
+The baseline scores 0.24–0.28 on the degraded Metrica games against its official full-match 0.2433,
+which suggests they are a fair proxy. Our score on the provided match is known only to the
+organisers.
+
+**Limitations.** The model still finds only about three quarters of the true possessions;
+possessions of a few seconds are the main misses. External games with simulated tracking noise are
+a proxy, and Smart Tagging does not exist on them, so the tag weights are untested there. Long ball
+gaps hide some hand-overs; fouls in open play stop play while players slow only gradually.
+
+## 5. Possession rules implemented
 
 | situation | rule |
 |---|---|
-| controlled ball | the team whose nearest player is close: Gaussian kernel, σ = 1.0 m, on each team's nearest player |
-| loose or contested ball | stays with the last team (zero evidence carries the state) |
-| single touch, deflection, aerial duel without control | no change unless the new team accumulates evidence ≥ the hand-over cost, and the possession lasts ≥ 1 s |
-| pass in flight past an opponent | evidence × 0.15 above 9 m/s |
-| ball out of play | D from the moment it is > 0.75 m past a line, and while unseen afterwards ("last seen out stays out") |
-| restart | D until the ball is played (players walking, ball stationary ≥ 1.5 s, set-piece tag start); then possession to whoever controls it |
-| kick-off | every frame of a half before its detected kick-off is forced to D; possession then to the kicking team |
-| goalkeeper holding the ball | ordinary control by the goalkeeper's team |
-| change of team through a stoppage | priced as dead + restart, not as a hand-over |
-| possession shorter than 1 s | not a possession: absorbed by its neighbours |
-| ball invisible | carry the current state; team shape and Smart Tagging priors may move it |
+| controlled ball | nearest player within reach, with persistence over 0.28 s |
+| loose ball, ball in flight | stays with the last verified team (retention state) |
+| touch, deflection, lost aerial duel | no change unless evidence pays the hand-over cost of 12 |
+| ball out of play | D, from outside-pitch positions, slow players and a stationary ball |
+| restart | D until movement onset; set-piece windows give soft restart evidence |
+| missing ball | not dead by itself; current state carried unless other evidence moves it |
 | dead-ball ownership | never asked for: D |
 | ungraded frames | X |
 
-## 5. Results and limitations
+## 6. Team contributions
 
-The provided match's full ground truth is private, and its public window may not be used to choose
-anything, so **the quality evidence is on the external games**, scored with the official metric
-code, each game by a model that was not fitted or tuned on it:
+* **Valentin Gehrig** — the controlled model, its decoder and evidence, the IDSSE validation
+  protocol and experiments, diagnostics, a scan of public challenge forks.
+* **Leo Hofmann** — the other-match validation harness (Metrica sample games, event-derived labels,
+  ATD-like degradation), used here for fitting and evaluation; profile v2.
+* **Tejesh Simkhada** — repository and documentation, an independent model (Viterbi + team shape),
+  the rule-compliance work (external calibration, position-based movement), the head-to-head
+  comparison, integration, the team website.
+* **Mike Gisler** — an early analysis of the baseline's failure modes.
 
-| | spellF1 | macroF1 |
-|---|---:|---:|
-| starter `baseline_smooth50`, same degraded tracking | 0.259 | 0.656 |
-| our model, hand-picked costs, external calibration | 0.466 | 0.849 |
-| **our model, costs tuned on the other two games** (nested leave-one-game-out) | **0.540** | — |
-| our model as submitted (costs tuned on all three games — optimistic) | 0.547 | 0.856 |
+## 7. Reproduction
 
-The baseline scores 0.24–0.28 on these games against its official full-match 0.2433, which suggests
-the degraded external games are a reasonable proxy for the competition data.
-
-**Where it fails, and what we would fix with more time:**
-
-* **Short possessions.** Even tuned, the model finds about 0.66× as many possessions as there are
-  on the external games (0.48× before tuning); possessions of a few seconds are the main source of
-  misses.
-* **Transfer.** Three external games with simulated tracking noise are a proxy for the automatic
-  ATD; how well the tuned values carry over to the provided match cannot be measured without its
-  private ground truth. Smart Tagging does not exist on the external games, so its weights are
-  untested priors.
-* **Hand-overs hidden in ball gaps.** A sequence like A→H→A inside one long gap is visible only to
-  the weak team-shape prior.
-* **Fouls in open play** stop play while the ball stays on the pitch and players slow gradually, so
-  the dead-ball cues fire late.
-* **Future work:** more external labelled games (for example the DFL/IDSSE open dataset) for
-  fitting and a held-out check; a hidden semi-Markov decoder with explicit duration distributions;
-  ball re-detection in the tactical video for the missing 41%.
-
-## 6. Reproduction
-
-Requires the gated match bundle, unpacked into `./data` or pointed to by `MTAH_DATA_DIR`.
+Requires the gated match bundle in `./data` or `MTAH_DATA_DIR`.
 
 ```bash
 git clone https://github.com/Tejeshhh78/MesQueUnCode.git
 cd MesQueUnCode
-git checkout dev-TS/Setup
+git checkout final/submission
 python -m venv .venv
-.venv/Scripts/activate                         # Windows; on macOS / Linux: source .venv/bin/activate
-pip install -r requirements-solution.txt       # numpy 2.3.5, pandas 3.0.1 (Python 3.14.6 used)
-python solution/run_solution.py --output solution/results/Mes_Que_Un_Code.csv
-python evaluation/validate_submission.py solution/results/Mes_Que_Un_Code.csv
+.venv/Scripts/activate                 # Windows; macOS / Linux: source .venv/bin/activate
+pip install -r requirements-solution.txt
+python -m solution.code.possession --team Mes_Que_Un_Code --output-dir solution/results/final
+python evaluation/validate_submission.py solution/results/final/Mes_Que_Un_Code.csv
 ```
 
-The output's SHA-256 should be the one at the top of this document; the pipeline is deterministic.
-To reproduce the external fitting and tuning (downloads the public sample games into
-`data/external/`, about 180 MB):
+The output's SHA-256 should match the one at the top. To reproduce the external fitting and
+evaluation (downloads Metrica's public sample games, ~180 MB, into the gitignored `data/external/`):
 
 ```bash
-python solution/calibrate.py --download --check    # refits and confirms calibration.json
-python solution/evaluate_external.py               # leave-one-game-out scores
-python solution/tune_external.py                   # the decoder grid search
+python -c "from solution.external import metrica; metrica.download()"   # fetch the games once
+python -m solution.code.calibrate_activity --check                       # refit, confirm, score
 ```
 
-Tests: `python -m unittest discover -s solution/tests -t .` (50 tests; the real-data tests skip
-themselves when the bundle is absent).
-
-Code map: `solution/loaders.py` (alignment and parsing), `solution/features.py` (evidence),
-`solution/possession_model.py` (decoder), `solution/postprocess.py` (clean-up and writer),
-`solution/config.py` (every parameter, with its origin), `solution/calibrate.py`,
-`solution/tune_external.py` and `solution/evaluate_external.py` (external data),
-`solution/external/` (Metrica loader, labels and degradation).
+Tests: `python -m unittest discover -s solution/tests -t .`.

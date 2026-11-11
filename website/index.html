@@ -182,7 +182,7 @@
       <div class="section-head">
         <p class="eyebrow">Com funciona · How it works</p>
         <h2 id="how-title">Tiki-taka for tensors: from tracking noise to whole possessions</h2>
-        <p>Five stages, numpy and pandas only, about two seconds for the full match once the tracking is cached.</p>
+        <p>Five stages, numpy and pandas only — the submitted <code>controlled</code> model, in <code>solution/code/possession/</code>.</p>
       </div>
 
       <figure class="pipeline">
@@ -198,10 +198,10 @@
             <g class="pipe-node"><rect x="10" y="20" width="150" height="56" rx="10"/><text x="85" y="53" text-anchor="middle">Tracking (ATD)</text></g>
             <g class="pipe-node"><rect x="10" y="88" width="150" height="56" rx="10"/><text x="85" y="121" text-anchor="middle">Smart Tagging</text></g>
             <g class="pipe-node"><rect x="10" y="156" width="150" height="56" rx="10"/><text x="85" y="189" text-anchor="middle">Homography</text></g>
-            <g class="pipe-node strong"><rect x="215" y="88" width="140" height="56" rx="10"/><text x="285" y="113" text-anchor="middle">loaders.py</text><text x="285" y="132" text-anchor="middle" class="small">video-frame arrays</text></g>
-            <g class="pipe-node strong"><rect x="400" y="88" width="150" height="56" rx="10"/><text x="475" y="113" text-anchor="middle">features.py</text><text x="475" y="132" text-anchor="middle" class="small">team + dead evidence</text></g>
-            <g class="pipe-node strong"><rect x="595" y="88" width="160" height="56" rx="10"/><text x="675" y="113" text-anchor="middle">possession_model</text><text x="675" y="132" text-anchor="middle" class="small">Viterbi over H/A/D</text></g>
-            <g class="pipe-node strong"><rect x="800" y="88" width="190" height="56" rx="10"/><text x="895" y="113" text-anchor="middle">postprocess.py</text><text x="895" y="132" text-anchor="middle" class="small">spells → valid CSV</text></g>
+            <g class="pipe-node strong"><rect x="215" y="88" width="140" height="56" rx="10"/><text x="285" y="113" text-anchor="middle">data.py</text><text x="285" y="132" text-anchor="middle" class="small">video-frame arrays</text></g>
+            <g class="pipe-node strong"><rect x="400" y="88" width="150" height="56" rx="10"/><text x="475" y="113" text-anchor="middle">motion.py + model</text><text x="475" y="132" text-anchor="middle" class="small">team + dead evidence</text></g>
+            <g class="pipe-node strong"><rect x="595" y="88" width="160" height="56" rx="10"/><text x="675" y="113" text-anchor="middle">decoder</text><text x="675" y="132" text-anchor="middle" class="small">Viterbi over H/A/D</text></g>
+            <g class="pipe-node strong"><rect x="800" y="88" width="190" height="56" rx="10"/><text x="895" y="113" text-anchor="middle">__main__.py</text><text x="895" y="132" text-anchor="middle" class="small">validated CSV</text></g>
           </g>
           <g stroke="var(--gold)" stroke-width="2.5" fill="none" marker-end="url(#arrow)">
             <path d="M160,48 C190,48 190,108 213,110"/>
@@ -221,19 +221,19 @@
         </li>
         <li>
           <h3>Score who could be on the ball</h3>
-          <p>Nearest player per team with a Gaussian control kernel, discounted when the ball flies at pass speed. Short ball gaps are interpolated; long ones get zero evidence, so the current team is carried through.</p>
+          <p>Nearest player per team within touch reach and a close-control envelope, damped when the ball outruns the player, persistent over a fraction of a second, and a loose-ball state that keeps the last verified team while the ball is in flight.</p>
         </li>
         <li>
           <h3>Score whether the ball is dead</h3>
-          <p>Ball past a line (and still out while unseen), walking players, a ball placed for a restart, set-piece tags — and every frame before a detected kick-off is forced to <code>D</code>.</p>
+          <p>Ball outside the pitch, collective movement measured from positions over one second against regimes fitted on other matches, a stationary ball with slow players, and soft restart evidence from set-piece tags. A missing ball alone never means dead.</p>
         </li>
         <li>
           <h3>Decode spells, not frames</h3>
           <p>A Viterbi decoder charges a price for every hand-over and every stoppage, so a change only happens when the new state's evidence pays for it. That is exact hysteresis.</p>
         </li>
         <li>
-          <h3>Clean up, write, validate</h3>
-          <p>Sub-second spells are absorbed, dead-ball blips inside one possession bridged, and the CSV is checked with the official validator before the run reports success.</p>
+          <h3>Write and validate</h3>
+          <p>States shorter than 0.32 s are not allowed, the CSV is written atomically and checked with the official validator, and a manifest records inputs, code and configuration hashes.</p>
         </li>
       </ol>
     </section>
@@ -308,7 +308,7 @@
             <button type="button" class="button ghost" id="rondo-shuffle">Shuffle players</button>
             <button type="button" class="button ghost" id="rondo-corner">Corner kick</button>
           </div>
-          <p class="note">Same formula as <code>solution/features.py</code>: evidence = 0.35 × (k<sub>H</sub> − k<sub>A</sub>), k = exp(−½(d / 1.0 m)²). Zero evidence keeps the last team — a loose ball does not change possession.</p>
+          <p class="note">An illustration of the idea every team model shares: evidence = 0.35 × (k<sub>H</sub> − k<sub>A</sub>), k = exp(−½(d / 1.0 m)²), from the Viterbi + shape model. The submitted controlled model refines it with a touch-reach margin, persistence and a loose-ball retention state. Zero evidence keeps the last team — a loose ball does not change possession.</p>
         </div>
       </div>
     </section>
@@ -376,22 +376,22 @@
         <h2 id="metrics-title">The scoreboard: baseline vs Mes Que Un Code</h2>
         <p>The rules say anything tuned must be tuned on external data, so that is where we measure too:
           Metrica's three public sample games, labels from their own events, tracking degraded to look like
-          the competition's, scored with the official metric code. Each game is scored by a model tuned on the
+          the competition's, scored with the official metric code. Each model is scored on games it was not tuned on — tuned on the
           other two. Our full-match score on the real match is <strong>scored privately by the organisers</strong>.</p>
       </div>
 
       <div class="two-col">
         <figure class="card chart-card">
           <figcaption><h3>External games — spellF1</h3>
-            <p class="note">The ranking metric: whole possessions recovered. Tuning on external games took us from 0.466 to 0.540; the baseline scores 0.259 on the same tracking.</p></figcaption>
-          <svg id="chart-public" viewBox="0 0 480 200" role="img" aria-labelledby="chart-public-title">
+            <p class="note">The ranking metric: whole possessions recovered. The team's three model lines on identical games; the organisers' baseline scores 0.259 on the same tracking.</p></figcaption>
+          <svg id="chart-public" viewBox="0 0 480 250" role="img" aria-labelledby="chart-public-title">
             <title id="chart-public-title">spellF1 on external games for the baseline and our model</title>
           </svg>
         </figure>
         <figure class="card chart-card">
           <figcaption><h3>External games — macroF1</h3>
             <p class="note">The tie-break metric: the right label on the right frame, averaged over H, A and D.</p></figcaption>
-          <svg id="chart-poss" viewBox="0 0 480 200" role="img" aria-labelledby="chart-poss-title">
+          <svg id="chart-poss" viewBox="0 0 480 250" role="img" aria-labelledby="chart-poss-title">
             <title id="chart-poss-title">macroF1 on external games for the baseline and our model</title>
           </svg>
         </figure>

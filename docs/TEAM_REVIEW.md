@@ -129,3 +129,15 @@ judged on other-match data under a protocol written down *before* running it.
   their reports; the models themselves were re-run and reproduced byte for byte.
 * It did not crawl the 189 public forks again; section 4 relies on Valentin's scout.
 * No quality ranking on the provided match is possible without the private ground truth.
+
+## Update, 11 November 2026: decision after the rule clarification
+
+The organisers clarified that anything fitted or tuned must use external data only. Every model was
+then re-scored on identical external games (Metrica 1–3, degraded towards the ATD, official metric
+code), each on games it was not fitted or tuned on: controlled 0.553 as built, 0.543 compliant;
+Tejesh's model 0.540; v2-shape 0.528; v2 0.510; baseline 0.259. Full table: EXPERIMENTS.md.
+
+The submission is **controlled**, made compliant: its movement regimes are fitted on the external
+games and frozen, and movement is computed from positions over one second so the frozen regimes
+survive a change of speed scale. Branches: `integration/best-of` (everything, both models, website,
+docs) and `final/submission` (the same code with the final file's checksum).

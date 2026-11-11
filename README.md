@@ -152,61 +152,46 @@ machine, it scores the same way on ours.
 
 ## Mes Que Un Code — our solution
 
-Our entry lives in [`solution/`](solution/), our team site in [`website/`](website/), and our
-documentation next to the challenge's in [`docs/`](docs/). The organisers' `starter/`,
-`evaluation/` and `games.py` are untouched, so every command above keeps working.
-
-**How it works, in one paragraph.** Every source is aligned to the tactical video. Per frame, the
-model scores *who could be playing the ball* (nearest player of each team, discounted for a ball in
-flight, plus weak Smart Tagging priors and a team-shape prior fitted on external games) and *whether the ball is
-dead* (ball past a line, walking players, a ball placed for a restart, set-piece tags, forced `D`
-before each kick-off). A three-state Viterbi decoder then turns that evidence into whole
-possessions, paying an explicit price for every hand-over and every stoppage — hysteresis done
-exactly, which is what `spellF1` rewards. Details: [docs/MODEL.md](docs/MODEL.md).
+**Submitted model: `controlled`** (Valentin Gehrig), made compliant with the organisers' rule
+clarification: its only fitted part — two movement regimes — is fitted on Metrica's public sample
+games and only applied here, on a position-based movement feature that keeps its scale across
+trackers. The technical document is [docs/Mes_Que_Un_Code.md](docs/Mes_Que_Un_Code.md).
 
 ```bash
-pip install -r requirements-solution.txt                         # pinned numpy + pandas we built with
+pip install -r requirements-solution.txt                          # pinned numpy + pandas
 
-# 1. data: unpack the gated bundle into ./data, or point MTAH_DATA_DIR at it
-# 2. generate the submission (≈10 s first run, ≈2 s once the tracking cache exists)
-python solution/run_solution.py                                  # -> solution/results/mes_que_un_code.csv
-python solution/run_solution.py --window 50 --output evaluation/results/solution.csv
-python solution/run_solution.py --set switch_cost=6 --print-params
+# data: unpack the gated bundle into ./data, or point MTAH_DATA_DIR at it
+python -m solution.code.possession --team Mes_Que_Un_Code --output-dir solution/results/final
+python evaluation/validate_submission.py solution/results/final/Mes_Que_Un_Code.csv
 
-# 3. validate exactly as the official scorer does, then score on the public window
-python evaluation/validate_submission.py solution/results/mes_que_un_code.csv
-python evaluation/run_evaluation.py --results solution/results --out solution
-
-# 4. compare baselines, solution and ablations; run the tests
-python solution/experiments.py
-python -m unittest discover -s solution/tests -t .
-
-# 5. the team website
-cd website && python -m http.server 8000                         # http://localhost:8000
+python -m unittest discover -s solution/tests -t .                # all tests
+cd website && python -m http.server 8000                          # the team website
 ```
 
-Without the gated data, `run_solution.py` exits with code 2 and a message naming every missing
-file; the scorer, the validator and all synthetic tests still run. The real-data tests are skipped
-with the reason.
+Run outputs on the provided match locally and keep them local: the rules forbid uploading the
+provided data, or anything derived from it, to AI services.
 
-| doc | what |
+**How it was chosen.** On identical external games (Metrica's three sample games, labels from their
+own events, tracking degraded towards the ATD, official metric code), each scored by a model not
+fitted or tuned on it:
+
+| model | spellF1 | possessions found |
+|---|---:|---:|
+| organisers' `baseline_smooth50` | 0.259 | – |
+| v2 (Leo) | 0.510 | 0.65× |
+| v2-shape (Valentin) | 0.528 | 0.67× |
+| Viterbi + team shape (Tejesh) | 0.540 | 0.70× |
+| **controlled, compliant (Valentin + compliance work)** | **0.543** | **0.76×** |
+
+| where | what |
 |---|---|
-| [docs/Mes_Que_Un_Code.md](docs/Mes_Que_Un_Code.md) | **the technical document we submit** |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | repository layout, data flow, frame alignment, tactical vs broadcast |
-| [docs/MODEL.md](docs/MODEL.md) | the model, every possession rule, parameters, limitations |
-| [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) | measured results and how far to trust them |
-| [docs/WEBSITE.md](docs/WEBSITE.md) | running, editing and deploying the team site |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | common errors and fixes |
-
-**Rule compliance.** Following the organisers' clarification, everything fitted or tuned uses
-external data only: Metrica Sports' public sample games (`solution/calibrate.py`,
-`solution/tune_external.py`). On the provided match the model only applies those values; a test
-fails if anything is fitted at inference time. The public 5 minutes are used only for correctness
-checks.
-
-**Measured** (details in [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)): on the external games, with
-each game scored by a model not tuned on it, spellF1 **0.540** against 0.259 for `baseline_smooth50`
-on the same tracking. Full-match spellF1 on the provided match needs the private ground truth.
+| `solution/code/possession/` | the submitted controlled model (`motion.py`: position-based movement, frozen regimes) |
+| `solution/code/calibrate_activity.py` | fits the regimes on external games; leave-one-game-out scores |
+| `solution/` (top-level modules) | Tejesh's alternative model, with its own external calibration and tuning |
+| `solution/external/` | Leo's Metrica loader, event-derived labels and ATD-like degradation |
+| `solution/TECHNICAL_REPORT.md` | Valentin's development and IDSSE selection record |
+| `website/` | the team website |
+| `docs/` | challenge documents and ours: technical document, architecture, model, experiments, team review |
 
 ---
 

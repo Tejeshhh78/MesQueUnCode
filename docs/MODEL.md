@@ -1,4 +1,9 @@
-# The possession model
+# The possession model (alternative: Viterbi + team shape)
+
+> This document describes **Tejesh Simkhada's alternative model** (the top-level modules in
+> `solution/`). The **submitted** model is `controlled`, described in
+> [Mes_Que_Un_Code.md](Mes_Que_Un_Code.md) and `solution/TECHNICAL_REPORT.md`; the comparison that
+> chose it is in [EXPERIMENTS.md](EXPERIMENTS.md).
 
 This is the technical description of the Mes Que Un Code entry: what it does, why, and every rule
 it implements. Parameters live in [`solution/config.py`](../solution/config.py), each with a

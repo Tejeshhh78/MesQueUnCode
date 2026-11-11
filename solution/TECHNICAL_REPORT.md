@@ -2,6 +2,14 @@
 
 More than a Hack 2027, Phase 1. Selected model: controlled with team-switch cost 12. Earlier experiments below document the selection.
 
+> **Final submission note.** The submitted technical document is
+> [`docs/Mes_Que_Un_Code.md`](../docs/Mes_Que_Un_Code.md). For the final, the movement mixture
+> described below is no longer fitted on the input match: following the organisers' rule
+> clarification it is fitted once on Metrica's public sample games
+> (`solution/code/calibrate_activity.py`) on a position-based movement feature
+> (`solution/code/possession/motion.py`) and only applied. This report is otherwise Valentin
+> Gehrig's record of the model's development and IDSSE selection.
+
 ## Method
 
 The system assigns H (home possession), A (away possession), D (dead ball) or
@@ -24,8 +32,9 @@ with team strength 1.25; they never directly supply output labels.
 
 Live/dead evidence combines collective movement, ball movement, observation
 availability, stationary-ball/slow-player evidence and outside-pitch positions.
-A deterministic two-component movement mixture is fitted without labels; its
-faster component is movement evidence, not a learned live/dead class. Automatic
+A deterministic two-component movement mixture, fitted without labels on external
+games and frozen (see the note above), supplies movement evidence through its faster
+component; it is not a learned live/dead class. Automatic
 set-piece windows supply soft restart evidence from movement onset. Missing ball
 observations are not automatically D; only short, bounded gaps up to 0.32 s are
 interpolated for movement calculations.
