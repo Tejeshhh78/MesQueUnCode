@@ -34,10 +34,13 @@ from solution.config import Params  # noqa: E402
 
 
 def predict(match: loaders.MatchData, params: Params, game: str = GAME,
-            clean: bool = True) -> np.ndarray:
-    """Label array (H/A/D on graded frames, X elsewhere) for one loaded match."""
+            clean: bool = True, pitch=None) -> np.ndarray:
+    """Label array (H/A/D on graded frames, X elsewhere) for one loaded match.
+
+    ``pitch`` overrides the game's pitch size; the external evaluation uses it for other matches.
+    """
     fps = GAMES[game]["fps"]
-    evidence = features.build_evidence(match, params, GAMES[game]["pitch"], fps)
+    evidence = features.build_evidence(match, params, pitch or GAMES[game]["pitch"], fps)
     states = possession_model.decode(evidence, params, match.halves)
     if clean:
         states = postprocess.clean(states, match.halves,
@@ -94,7 +97,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     params = config.DEFAULT_PARAMS.with_overrides(**overrides)
 
     if args.print_params:
-        print(json.dumps(params.to_dict(), indent=2, sort_keys=True))
+        print(json.dumps(params.describe(), indent=2, sort_keys=True))
         return 0
 
     started = time.time()

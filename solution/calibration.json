@@ -1,0 +1,67 @@
+{
+  "motion": {
+    "still_speed": 1.367174,
+    "still_scale": 0.601322
+  },
+  "shape": {
+    "features": [
+      "centroid_gap",
+      "home_territory",
+      "away_territory",
+      "length_gap",
+      "width_gap",
+      "home_advance",
+      "away_advance"
+    ],
+    "mean": [
+      -13.465255,
+      -7.051387,
+      6.413868,
+      -0.243084,
+      -0.073873,
+      0.021552,
+      -0.005977
+    ],
+    "std": [
+      2.719925,
+      15.901829,
+      16.03559,
+      6.323679,
+      4.130657,
+      1.900446,
+      1.92647
+    ],
+    "weights": [
+      0.098045,
+      -0.09292,
+      -0.216504,
+      -0.198937,
+      0.301598,
+      1.960381,
+      0.242657,
+      0.242007
+    ]
+  },
+  "provenance": {
+    "data": "Metrica Sports public sample games 1, 2, 3 (https://github.com/metrica-sports/sample-data)",
+    "labels": "derived from each game's own event data by solution/external/labels.py",
+    "tracking": "degraded towards the automatic ATD by solution/external/degrade.py",
+    "seeds": [
+      0,
+      1
+    ],
+    "degradation": {
+      "alive_missing": 0.35,
+      "mean_gap_s": 1.2,
+      "crowd_factor": 3.0,
+      "fast_factor": 2.0,
+      "dead_visible": 0.4,
+      "ball_noise_m": 0.25,
+      "player_noise_m": 0.2,
+      "player_missing": 0.07,
+      "outlier_rate": 0.002
+    },
+    "subsample": 5,
+    "provided_match_used": false
+  }
+}

@@ -21,12 +21,18 @@ solution/                    ours
   possession_model.py        emission scores + three-state Viterbi decoder
   postprocess.py             spell clean-up, CSV writer, spell statistics
   run_solution.py            command-line entry point
-  experiments.py             baselines vs solution vs ablations
+  experiments.py             baselines vs solution vs ablations (provided match; keep output local)
+  calibrate.py               fits motion + team-shape models on EXTERNAL games -> calibration.json
+  calibration.json           the fitted values, committed; only applied at inference
+  tune_external.py           decoder grid search on EXTERNAL games (nested leave-one-game-out)
+  evaluate_external.py       whole pipeline vs baseline on EXTERNAL games
+  external/                  Metrica sample-game loader, event-derived labels, ATD-like degradation
   tests/                     unittest suite (synthetic + optional real-data tests)
   results/                   our submissions (gitignored *.csv)
 website/                     static team site (HTML/CSS/JS, no build step)
 docs/                        challenge docs (organisers) + ARCHITECTURE/MODEL/EXPERIMENTS/WEBSITE/TROUBLESHOOTING (ours)
 data/                        gated match bundle, gitignored except data/README.md
+data/external/               downloaded Metrica public sample games (external), gitignored
 .cache/mesqueuncode/         parsed-ATD cache (.npz), gitignored, derived data -- never commit
 ```
 

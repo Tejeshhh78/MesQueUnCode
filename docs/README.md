@@ -14,6 +14,8 @@ This directory contains the challenge documentation, evaluation rules, and submi
 
 ## Mes Que Un Code (our solution)
 
+- [Technical document](Mes_Que_Un_Code.md) - the document we submit
+
 8. [Architecture](ARCHITECTURE.md) - repository layout, data flow, frame alignment
 9. [Model](MODEL.md) - how the possession model works and the rules it implements
 10. [Experiments](EXPERIMENTS.md) - measured results and their limits

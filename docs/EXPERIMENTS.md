@@ -1,91 +1,94 @@
 # Experiments
 
-What was measured, how to reproduce it, and how far each number can be trusted.
+What was measured, on which data, and how far each number can be trusted.
 
-## Three kinds of evaluation, kept apart
+## The rule that shapes everything
 
-| | what | data | used for |
-|---|---|---|---|
-| **local, unlabelled** | possession count, mean length, stoppages, H/A/D shares over all 158,857 graded frames; silver-label agreement | gated bundle, no labels | designing and sanity-checking features |
-| **public validation** | official scorer on the 5-minute public ground truth (17 possessions) | `evaluation/gt/*_public.csv` | checking the pipeline is *correct*; never choosing parameters |
-| **final submission** | official scorer on the full-match private ground truth | organisers only | the ranking |
+The organisers' rule clarification (November 2026): anything trained, fitted, calibrated or tuned
+must use **external data only** — never the ground truth possession data, never the provided match
+or its video. Automatic checks with the provided data remain allowed.
 
-No parameter in `solution/config.py` was chosen by looking at the public columns below.
-[EVALUATION.md](EVALUATION.md) shows why: on the public window the ±125 baseline beats the ±50
-one, and on the full match it is the other way round.
+So the experiments are split:
+
+| | data | used for |
+|---|---|---|
+| **external** | Metrica Sports' three public sample games, event-derived labels, tracking degraded towards the automatic ATD | fitting, tuning, and every quality number below |
+| **provided match** | the gated BAR-ATH bundle | inference only; automatic correctness checks (file valid, frames aligned, deterministic) |
+| **public 5-minute ground truth** | `evaluation/gt/*_public.csv` | automatic correctness checks only; nothing chosen from it |
 
 ## Reproduce
 
 ```bash
-python starter/baseline.py                      # the four reference baselines -> evaluation/results/
-python solution/experiments.py                  # the table below
-python solution/run_solution.py --output evaluation/results/mes_que_un_code.csv
-python evaluation/run_evaluation.py --bootstrap 1000
+python solution/calibrate.py --download --check    # fit motion + shape on external games
+python solution/evaluate_external.py               # whole pipeline vs baseline, external games
+python solution/tune_external.py                   # decoder grid search, nested leave-one-out
 ```
 
-`experiments.py` rebuilds the baselines from the cached tracking with `starter/baseline.py`'s own
-smoothing function and asserts that they are identical to the CSVs `starter/baseline.py` wrote. All
-four matched exactly, which confirms the vectorised loader and frame alignment.
+## Fitted parts, scored on a held-out external game
 
-## Results (measured 2026-11-02, Python 3.14, numpy 2.3.5, pandas 3.0.1)
+`calibrate.py`, leave-one-game-out (fit on two games, score the third):
 
-| system | possessions | mean poss (s) | stoppages | H % | A % | D % | public macroF1 | public spellF1 | public poss | public dur (s) |
-|---|---|---|---|---|---|---|---|---|---|---|
-| baseline_raw | 1949 | 1.9 | 150 | 33.5 | 25.9 | 40.7 | 0.5972 | 0.0378 | 131 | 2.0 |
-| baseline_smooth25 | 746 | 5.4 | 133 | 36.4 | 27.1 | 36.5 | 0.6200 | 0.2868 | 36 | 7.6 |
-| baseline_smooth50 | 594 | 7.2 | 133 | 38.6 | 29.1 | 32.3 | 0.6207 | 0.3256 | 26 | 10.8 |
-| baseline_smooth125 | 398 | 12.4 | 79 | 44.0 | 33.7 | 22.3 | 0.5812 | 0.4242 | 16 | 18.5 |
-| **solution** | **202** | **18.9** | **110** | 37.7 | 22.4 | 39.9 | **0.8344** | **0.4714** | 11 | 23.6 |
-| ablate_no_cleanup | 202 | 18.9 | 110 | 37.7 | 22.4 | 39.9 | 0.8344 | 0.4714 | 11 | 23.6 |
-| ablate_no_smart_tagging | 207 | 18.7 | 104 | 37.1 | 23.8 | 39.1 | 0.8091 | 0.3360 | 8 | 33.2 |
-| ablate_no_team_shape | 197 | 19.5 | 108 | 38.4 | 22.0 | 39.6 | 0.8344 | 0.4714 | 11 | 23.6 |
-| ablate_no_dead_model | 139 | 42.8 | 34 | 53.3 | 40.3 | 6.4 | 0.5042 | 0.3333 | 7 | 38.1 |
-| ablate_low_hysteresis | 362 | 10.7 | 103 | 37.3 | 23.6 | 39.2 | 0.7903 | 0.4216 | 20 | 13.2 |
+| held-out game | dead-ball motion classifier | majority class | team-shape classifier | when ball missing | majority class |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 0.850 | 0.574 | 0.821 | 0.771 | 0.521 |
+| 2 | 0.824 | 0.607 | 0.815 | 0.763 | 0.531 |
+| 3 | 0.859 | 0.691 | 0.834 | 0.811 | 0.505 |
 
-Left block: full match, no labels. Right block: public 5 minutes, ground truth 17 possessions of
-mean 14.2 s. "Possessions" on the left counts maximal H/A runs inside the graded halves.
+Fitted on all three games (`calibration.json`): dead-ball motion centre 1.367 m/s, scale 0.601;
+team-shape weights dominated by the width gap between the teams.
 
-Bootstrap intervals from `run_evaluation.py --bootstrap 1000` (5–95%, public window):
+Player speeds for the external games are computed from the clean positions and hidden wherever the
+degraded player is missing; differentiating the simulated positional jitter would inflate speeds by
+up to 1 m/s and push the threshold up (an earlier run gave 1.93 m/s for that reason).
 
-| system | spellF1 | interval | macroF1 interval |
-|---|---|---|---|
-| solution (`mes_que_un_code`) | 0.4714 | 0.257 – 0.671 | 0.613 – 0.884 |
-| baseline_smooth125 | 0.4242 | 0.267 – 0.594 | 0.448 – 0.665 |
-| baseline_smooth50 (published floor) | 0.3256 | 0.214 – 0.447 | 0.460 – 0.742 |
+## Whole pipeline on external games
 
-Published full-match spellF1 for the baselines (EVALUATION.md): raw 0.0486, smooth25 0.1996,
-**smooth50 0.2433 (the floor)**, smooth125 0.2242. Full-match spellF1 for our solution requires the
-private ground truth: **run locally with the supplied data** is all anyone outside the organisers can
-do, and we make no claim about it.
+`evaluate_external.py`, official metric code, two degradation seeds per game:
 
-## What the numbers say — and do not say
+| game | seed | true poss | baseline_smooth50 spellF1 | ours spellF1 | baseline macroF1 | ours macroF1 | ours poss |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 0 | 351 | 0.2663 | 0.5674 | 0.6671 | 0.8465 | 244 |
+| 1 | 1 | 351 | 0.2849 | 0.5668 | 0.6682 | 0.8553 | 234 |
+| 2 | 0 | 325 | 0.2543 | 0.5218 | 0.6609 | 0.8456 | 207 |
+| 2 | 1 | 325 | 0.2371 | 0.5393 | 0.6406 | 0.8380 | 215 |
+| 3 | 0 | 384 | 0.2467 | 0.5609 | 0.6475 | 0.8811 | 265 |
+| 3 | 1 | 384 | 0.2620 | 0.5234 | 0.6505 | 0.8714 | 245 |
+| **mean** | | | **0.2585** | **0.5466** | **0.6558** | **0.8563** | 0.66× truth |
 
-* **The pipeline is correct.** Frames are aligned (the rebuilt baselines match byte for byte), the
-  file validates, the second half is D until its kick-off, and on the public window the solution
-  labels frames far better than any baseline (macroF1 0.83 vs 0.58–0.62).
-* **The spellF1 gain on the public window is inside the noise.** The intervals overlap heavily; 17
-  possessions cannot separate systems. We do not claim a spellF1 improvement from these numbers.
-* **The unlabelled full-match statistics move in the right direction.** 202 possessions instead of
-  594, a dead-ball share of 39.9% (football's ball-out-of-play time is typically around 40% of the
-  match), 110 stoppages — in line with the set pieces, fouls and throw-ins of a real match.
-* **Ablations** (read them as directions, not significance):
-  * the dead-ball model is essential — without it D falls to 6% and possessions run 43 s;
-  * the Smart Tagging priors matter on the public window (spellF1 0.47 → 0.34 without them) —
-    mostly through the set-piece dead-ball windows;
-  * team shape changes 5 possessions on the full match and nothing in the public window, as
-    expected from a prior that only acts where the ball is invisible;
-  * clean-up changes nothing at the default costs: the decoder already leaves no sub-second spells.
-    It stays as a guard for lower `switch_cost` settings;
-  * lower hysteresis produces more, shorter possessions (362 at 10.7 s).
-* **Known bias.** Both the full-match count and the public window suggest we under-segment (11
-  predicted against 17 true). See *Known limitations* in [MODEL.md](MODEL.md) for why we did not tune
-  it away.
+The calibration is leave-one-game-out, but the decoder costs were tuned on all three games, so the
+"ours" column is slightly optimistic; the honest figure is the nested one below. The baseline's
+0.24–0.28 here sits close to its official full-match 0.2433, which suggests the degraded external
+games are a reasonable proxy.
 
-## Self-supervised checks (no ground truth)
+## Decoder tuning
 
-| check | result |
-|---|---|
-| Smart Tagging `Team` vs nearest player within 1.5 m of a visible ball | BUILD UP 0.87, PROGRESSION 0.83, ATTACKING TRANSITION 0.71; DEFENDING IN MIDDLE THIRD 0.17 (mirror) |
-| team-shape logistic regression, cross-half on silver labels | 84.4% / 84.0% vs majority 61.1% / 62.7% |
-| motion likelihood ratio, ball-out vs ball-at-pass-speed | crosses zero between 1.5 and 1.75 m/s |
-| kick-off detection vs published kick-offs | 11189 vs 11185 (1st half), 113722 vs 113742 (2nd half) |
+`tune_external.py` grid: control radius 0.6/0.8/1.0/1.5 m × hand-over cost 0.25/0.5/1.0/1.5/2.0 ×
+minimum possession 0.7/1.0 s, plus the original hand-picked values (1.5 m, 4.0, 1.0 s).
+
+Nested leave-one-game-out (choose on two games, score the third):
+
+| held-out game | chosen | held-out spellF1 | hand-picked values |
+|---:|---|---:|---:|
+| 1 | 1.0 m, cost 1.0, 1.0 s | 0.5671 | 0.4647 |
+| 2 | 1.0 m, cost 0.5, 1.0 s | 0.5115 | 0.4563 |
+| 3 | 1.0 m, cost 1.0, 0.7 s | 0.5403 | 0.4780 |
+| **mean** | | **0.5396** | **0.4663** |
+
+Best on all three games, and used in `config.py`: **1.0 m, hand-over cost 1.0, minimum 1.0 s**
+(mean spellF1 0.5466; 0.7 s scored 0.5464). Tuning raised the possession count from 0.48× to 0.66×
+the truth.
+
+## What these numbers do not say
+
+* They are on three anonymised external matches with *simulated* tracking noise, not on the
+  competition match. Transfer to BAR-ATH cannot be measured without the private ground truth.
+* Smart Tagging does not exist for the external games, so its priors are untested there.
+* Two seeds of the same game are not independent matches; the effective sample is three games.
+
+## Correctness checks on the provided match
+
+`python -m unittest discover -s solution/tests -t .` runs 50 tests, four of them on the provided
+bundle. They report only pass or fail: the output has 199,319 rows and passes the official
+validator; the second half is D before its kick-off; two runs are identical. `solution/experiments.py`
+can be run locally to compare the baselines with the solution on the provided match. Like every
+inspection of the provided data, keep its output local; never paste it into an AI service.

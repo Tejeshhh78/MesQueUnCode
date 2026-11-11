@@ -1,12 +1,20 @@
 """Paths and every tunable number of the pipeline, with the reason each one has its value.
 
-How the defaults were chosen
-----------------------------
-From football and physics priors and from *unlabelled* statistics of the provided tracking
-(distributions of ball speed, nearest-player distance, mean player speed, Smart Tagging intervals).
-None of them was fitted to the public 5-minute ground truth: RULES.md forbids it, and
-EVALUATION.md shows that tuning on 17 possessions picks the wrong answer even for a one-parameter
-baseline. The public window is used only to check that the pipeline is correct.
+How the values were chosen -- and what is never used
+-----------------------------------------------------
+The organisers' rule clarification: anything trained, fitted, calibrated or tuned must use
+external data only -- never the ground truth and never the provided match.
+
+* Values that are *fitted* (the motion threshold and the team-shape model) come from
+  ``solution/calibration.json``, written by ``solution/calibrate.py`` from Metrica Sports' public
+  sample games -- other matches, with labels derived from their own event data. At run time on the
+  provided match they are only applied, never refitted.
+* Values that are *tuned* (control_sigma_m, switch_cost, min_spell_seconds) were chosen by
+  ``solution/tune_external.py`` on the same external games, and are marked as such below.
+* Every other value is a fixed design choice from football and physics knowledge (pitch geometry,
+  pass and dribble speeds, line widths, frame rate), stated next to it. None was set by measuring
+  the provided match or by scoring against any part of its ground truth.
+* The public 5-minute ground truth is used only for automatic correctness checks of the pipeline.
 
 Units: distances in metres, speeds in m/s, durations in frames at 25 fps unless the name says
 seconds. Costs are in nats (negative log-likelihood) and are what the Viterbi decoder adds up.
@@ -14,20 +22,39 @@ seconds. Costs are in nats (negative log-likelihood) and are what the Viterbi de
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import asdict, dataclass, replace
-from typing import Dict
+from typing import Dict, Tuple
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE_DIR = os.environ.get("MQUC_CACHE_DIR") or os.path.join(ROOT, ".cache", "mesqueuncode")
 RESULTS_DIR = os.path.join(ROOT, "solution", "results")
 DEFAULT_OUTPUT = os.path.join(RESULTS_DIR, "mes_que_un_code.csv")
 FPS = 25
+CALIBRATION_PATH = os.path.join(ROOT, "solution", "calibration.json")
 
-# Smart Tagging codes whose Team tag names the side IN POSSESSION. Checked without ground truth:
-# inside these intervals the nearest player to a visible ball belongs to the tagged team 71-87% of
-# the time. The DEFENDING ... codes are the same intervals with the defending team named (their
-# agreement is the mirror image, 13-38%), so using them as well would count each phase twice.
+
+def _load_calibration() -> dict:
+    """The external-data calibration. Only calibrate.py may run without it (it writes it)."""
+    if os.path.isfile(CALIBRATION_PATH):
+        with open(CALIBRATION_PATH, encoding="utf-8") as handle:
+            return json.load(handle)
+    if os.environ.get("MQUC_CALIBRATING") == "1":
+        return {"motion": {"still_speed": 1.4, "still_scale": 0.3},
+                "shape": {"mean": [], "std": [], "weights": []}}
+    raise FileNotFoundError(
+        "{} is missing. It is committed with the code; regenerate it from the external sample "
+        "games with:  python solution/calibrate.py --download --write".format(CALIBRATION_PATH))
+
+
+CALIBRATION = _load_calibration()
+
+# Smart Tagging codes whose Team tag names the side IN POSSESSION, chosen by what the codes mean:
+# a build-up, a progression and an attacking transition are, by definition, phases of the team
+# with the ball. The "DEFENDING IN ... THIRD" and "DEFENSIVE TRANSITION" codes name the team
+# without it and describe the same phases from the other side, so using them too would count each
+# phase twice. Codes about locations ("BALL IN THE BOX", "PLAYERS IN THE BOX") are not used.
 POSSESSION_TAG_CODES = ("BUILD UP", "PROGRESSION", "ATTACKING TRANSITION")
 
 # Set-piece Type values (lower case) that open with a dead ball. Kick-offs are handled separately
@@ -48,9 +75,10 @@ class Params:
 
     # -- team control evidence --------------------------------------------------------------------
     # Scale of the Gaussian "could be playing the ball" kernel on the nearest player of each team.
-    # Median nearest-player distance during play is ~1.9 m, so 1.5 m separates on-the-ball from
-    # nearby-but-not-touching.
-    control_sigma_m: float = 1.5
+    # TUNED ON EXTERNAL GAMES by tune_external.py (grid 0.6/0.8/1.0/1.5 m on Metrica's sample
+    # games). 1.0 m -- about a stride -- won; it agrees with the football reading that a player
+    # controls the ball within reach, not a few metres away.
+    control_sigma_m: float = 1.0
     # Above this ball speed the ball is a pass or a shot, not a controlled ball: a player it flies
     # past has not won it. Real passes run 10-25 m/s; dribbles stay under ~6 m/s.
     flight_speed: float = 9.0
@@ -72,26 +100,24 @@ class Params:
     # on purpose: phases are not possessions, and the tagging is automatic.
     tag_team_evidence: float = 0.03
 
-    # -- team-shape prior, self-supervised -----------------------------------------------------------
-    # Where the ball is not seen (41% of graded frames), a logistic regression on collective team
-    # shape -- width, length, territory, forward movement -- says which side looks like it has the
-    # ball. It is fitted on this match's *silver* labels: frames where a rule, not a person, finds
-    # one team's player within silver_near_m of a slow ball and nobody from the other team within
-    # silver_far_m. Trained on one half and tested on the other it agrees with held-out silver
-    # labels ~84% of the time (majority class: ~62%). Log-odds per frame = shape_evidence * logit.
+    # -- team-shape prior (fitted on external games) -------------------------------------------------
+    # Where the ball is not seen, a logistic regression on collective team shape -- width, length,
+    # territory, forward movement -- says which side looks like it has the ball. Its feature
+    # standardisation and weights are fitted by calibrate.py on Metrica's public sample games with
+    # event-derived possession labels, and only applied here. Log-odds per frame =
+    # shape_evidence * logit, on frames with no ball position only.
     shape_evidence: float = 0.02
     shape_halfwidth: int = 12
     shape_min_players: int = 7
-    shape_l2: float = 1.0
     shape_clip: float = 4.0
-    shape_min_training_frames: int = 500
-    silver_near_m: float = 1.0
-    silver_far_m: float = 2.5
-    silver_max_speed: float = 6.0
+    shape_mean: Tuple[float, ...] = tuple(CALIBRATION["shape"]["mean"])
+    shape_std: Tuple[float, ...] = tuple(CALIBRATION["shape"]["std"])
+    shape_weights: Tuple[float, ...] = tuple(CALIBRATION["shape"]["weights"])
 
     # -- homography -----------------------------------------------------------------------------
-    # Where the tactical camera-to-pitch fit misses by more than this many pixels (median during
-    # play is 0.24, ~1.5 across halftime), team evidence is scaled by homography_weight.
+    # Where the tactical camera-to-pitch fit misses by more than this many pixels, team evidence is
+    # scaled by homography_weight. DATA.md documents a median of 0.24 px during play and ~1.5 px
+    # when the camera is off the pitch; 5 px is well clear of both.
     homography_max_error: float = 5.0
     homography_weight: float = 0.5
 
@@ -101,18 +127,16 @@ class Params:
     out_margin_m: float = 0.75
     # Log-odds per frame in favour of D while the ball is out of the pitch.
     out_evidence: float = 0.6
-    # Mean player speed around which play looks stopped, and how sharply. Calibrated without ground
-    # truth on algorithmic silver labels (see docs/MODEL.md): frames where the ball is visibly out
-    # of the pitch (dead) against frames where an in-pitch ball moves at pass speed (live). The
-    # likelihood ratio of the two crosses zero between 1.5 and 1.75 m/s, and both silver sets are
-    # biased towards faster players than their class average, so the midpoint is taken slightly low.
-    still_speed: float = 1.4
-    still_scale: float = 0.3
+    # Mean player speed around which play looks stopped, and how sharply: a logistic regression of
+    # dead ball on smoothed mean player speed, fitted by calibrate.py on Metrica's public sample
+    # games (event-derived dead-ball labels, tracking degraded towards the automatic ATD).
+    still_speed: float = CALIBRATION["motion"]["still_speed"]
+    still_scale: float = CALIBRATION["motion"]["still_scale"]
     # Mean player speed is smoothed over +/- this many frames (1 s) before use.
     motion_halfwidth: int = 25
-    # Weight of the motion evidence (log-odds per frame at the extremes). The silver-label ratio
-    # reaches ~2 nats per frame, but motion smoothed over 2 s is one independent sample every
-    # ~50 frames, so its per-frame weight is ~2 / 25.
+    # Weight of the motion evidence (log-odds per frame at the extremes). Motion smoothed over
+    # +/- 1 s carries about one independent observation per second, so a per-frame weight of a few
+    # hundredths keeps a single slow second from outweighing the decoder's stoppage costs.
     motion_evidence: float = 0.08
     # Fewer tracked players than this (out of ~22) usually means the camera is not on play; no
     # motion evidence is taken from such frames.
@@ -141,10 +165,11 @@ class Params:
 
     # -- decoder (all costs in nats) -------------------------------------------------------------
     # Cost of a hand-over H<->A. Divided by team_evidence it is roughly the number of frames of
-    # clear control the new team needs before the decoder believes the change: 4.0 / 0.35 ~ 11
-    # frames (~0.5 s) of unambiguous on-the-ball evidence, more when it is mixed. This is the
-    # hysteresis that turns a deflection or a lost aerial duel into "no change".
-    switch_cost: float = 4.0
+    # clear control the new team needs before the decoder believes the change: 1.0 / 0.35 ~ 3
+    # frames of unambiguous on-the-ball evidence, more when it is mixed, and the 1 s minimum
+    # possession below still applies. TUNED ON EXTERNAL GAMES by tune_external.py (grid
+    # 0.25-2.0): the hand-picked 4.0 kept too few, too long possessions (0.48x the true count).
+    switch_cost: float = 1.0
     # Cost of the ball going dead, and of play restarting.
     dead_enter_cost: float = 3.0
     dead_exit_cost: float = 3.0
@@ -154,12 +179,20 @@ class Params:
     # -- spell clean-up -------------------------------------------------------------------------
     # Possession spells shorter than this (seconds) are absorbed by their neighbours. A possession
     # needs "a few seconds" of control (CHALLENGE.md); 1 s is a conservative floor below that.
+    # Checked on external games by tune_external.py (0.7 vs 1.0 s: 1.0 kept).
     min_spell_seconds: float = 1.0
     # Dead-ball runs shorter than this inside one team's possession are bridged.
     min_dead_seconds: float = 1.0
 
     def to_dict(self) -> Dict[str, float]:
         return asdict(self)
+
+    def describe(self) -> Dict[str, object]:
+        """to_dict() without the fitted shape arrays, for printing."""
+        out = asdict(self)
+        for key in ("shape_mean", "shape_std", "shape_weights"):
+            out[key] = "<{} values from calibration.json>".format(len(out[key]))
+        return out
 
     def with_overrides(self, **overrides: float) -> "Params":
         unknown = sorted(set(overrides) - set(asdict(self)))

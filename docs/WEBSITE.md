@@ -33,9 +33,10 @@ copy it to a `gh-pages` branch), Netlify or Vercel (publish directory `website`)
   is loaded from `github.com/<login>.png`, falling back to initials), optional role, and links.
   `GitHub` and `LinkedIn` links get their icon automatically.
 * **Metrics:** edit [`website/metrics.js`](../website/metrics.js) after re-running
-  `python solution/experiments.py` and `python evaluation/run_evaluation.py --bootstrap 1000`. Keep
-  `fullMatch.spellF1: null` for our system unless the organisers publish the score: the page then
-  shows "Run locally with the supplied data". Never put an estimate there.
+  `python solution/evaluate_external.py` and `python solution/tune_external.py`. The page shows
+  external-game results only; keep `publishedFullMatch: null` for our system unless the organisers
+  publish the score. Never put an estimate there, and never put statistics of the provided match on
+  the page.
 * **Colours:** the tokens at the top of `styles.css`. The theme is a night match in Barcelona:
   navy base, blaugrana (blue/garnet) stripe and glows, a gold accent, a green pitch for the board.
   Data colours are fixed by meaning and were checked with the dataviz skill's palette validator on
@@ -54,7 +55,7 @@ with an English gloss ("El repte · The challenge").
 
 The **Rondo lab** is a zoomed attacking half where you drag the ball and players (or move the ball
 with the arrow keys). It runs the model's own per-frame evidence live: nearest player per team,
-the 1.5 m control kernel, the pass-speed discount, the out-of-play margin, and how many frames of
+the 1.0 m control kernel, the pass-speed discount, the out-of-play margin, and how many frames of
 that evidence would pay for a hand-over. It uses no match data.
 
 The **demo** generates a synthetic two-minute match in the browser (seeded, reproducible) and runs
