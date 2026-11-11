@@ -1,7 +1,27 @@
 # Mes Que Un Code — solution
 
-Our possession pipeline for More than a Hack 2027, Phase 1. The organisers' `starter/`,
-`evaluation/` and `games.py` are imported, never modified.
+Two models live here. The organisers' `starter/`, `evaluation/` and `games.py` are imported, never
+modified. Everything fitted or tuned uses external data only (the organisers' rule clarification).
+
+## Submitted model: controlled (`solution/code/possession/`)
+
+Valentin Gehrig's model, with its movement regimes fitted on Metrica's public sample games and a
+position-based movement feature (`motion.py`). See [docs/Mes_Que_Un_Code.md](../docs/Mes_Que_Un_Code.md).
+
+```bash
+python -m solution.code.possession --team Mes_Que_Un_Code --output-dir solution/results/final
+python evaluation/validate_submission.py solution/results/final/Mes_Que_Un_Code.csv
+python -m solution.code.calibrate_activity --check     # refit the regimes externally; scores
+```
+
+The run writes the CSV, a provenance manifest and a copy of `TECHNICAL_REPORT.md` (Valentin's
+development record). Keep outputs on the provided match local: never upload them to AI services.
+
+## Alternative model: Viterbi + team shape (top-level modules)
+
+Tejesh Simkhada's independent model, compliant in the same way (external calibration in
+`calibration.json`, decoder tuned by `tune_external.py`). It ties with controlled on external games
+and is kept for comparison.
 
 ```text
 solution/

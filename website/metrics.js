@@ -1,35 +1,38 @@
 /*
- * Numbers shown in the Metrics section. Every value here was measured on EXTERNAL games or is
- * published by the organisers -- nothing is estimated, and nothing comes from the provided match.
- * Regenerate with:
+ * Numbers shown in the Metrics section. Every value was measured on EXTERNAL games or is published
+ * by the organisers -- nothing is estimated, and nothing comes from the provided match.
  *
- *   python solution/evaluate_external.py
- *   python solution/tune_external.py
+ *   python -m solution.code.calibrate_activity      (controlled, submitted)
+ *   python solution/tune_external.py                (Tejesh's model, nested leave-one-game-out)
  *
  * `external` = Metrica Sports' three public sample games, labels derived from their own events,
- *              tracking degraded towards the automatic ATD, scored with the official metric code.
- *              spellF1 for the tuned model is the nested leave-one-game-out figure: each game is
- *              scored by a model whose costs were chosen on the other two. possRatio = predicted /
- *              true possessions.
- * `publishedFullMatch` = the organisers' published full-match spellF1 (EVALUATION.md). Our own is
+ *              tracking degraded towards the automatic ATD, official metric code. Each model is
+ *              scored on games it was not fitted or tuned on. possRatio = predicted / true
+ *              possessions. See docs/EXPERIMENTS.md for the per-game table.
+ * `publishedFullMatch` = the organisers' published full-match spellF1 (EVALUATION.md). Ours is
  *              scored privately by the organisers, so it stays null.
  */
 window.MQUC_METRICS = {
-  measuredOn: "2026-11-04",
+  measuredOn: "2026-11-11",
   systems: [
     {
-      id: "baseline_smooth50", label: "Baseline, ±50 vote (published floor)", short: "Baseline ±50", kind: "baseline",
+      id: "baseline_smooth50", label: "Organisers' baseline (±50 vote)", short: "Baseline", kind: "baseline",
       external: { spellF1: 0.2585, macroF1: 0.6558, possRatio: null },
       publishedFullMatch: 0.2433
     },
     {
-      id: "ours_priors", label: "Mes Que Un Code, hand-picked costs", short: "Ours, untuned", kind: "baseline",
-      external: { spellF1: 0.4663, macroF1: 0.8486, possRatio: 0.48 },
+      id: "v2", label: "v2 — Leo", short: "v2 (Leo)", kind: "baseline",
+      external: { spellF1: 0.5095, macroF1: 0.8428, possRatio: 0.65 },
       publishedFullMatch: null
     },
     {
-      id: "ours_tuned", label: "Mes Que Un Code, tuned on external games (submitted)", short: "Mes Que Un Code", kind: "ours",
-      external: { spellF1: 0.5396, macroF1: 0.8563, possRatio: 0.66 },
+      id: "viterbi_shape", label: "Viterbi + team shape — Tejesh", short: "Viterbi (Tejesh)", kind: "baseline",
+      external: { spellF1: 0.5396, macroF1: 0.8547, possRatio: 0.70 },
+      publishedFullMatch: null
+    },
+    {
+      id: "controlled", label: "controlled — Valentin, compliant (submitted)", short: "controlled", kind: "ours",
+      external: { spellF1: 0.5432, macroF1: 0.8385, possRatio: 0.76 },
       publishedFullMatch: null
     }
   ]

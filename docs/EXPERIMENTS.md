@@ -16,6 +16,30 @@ So the experiments are split:
 | **provided match** | the gated BAR-ATH bundle | inference only; automatic correctness checks (file valid, frames aligned, deterministic) |
 | **public 5-minute ground truth** | `evaluation/gt/*_public.csv` | automatic correctness checks only; nothing chosen from it |
 
+## Head-to-head of the team's models (decides the submission)
+
+All models on **identical** degraded external games (Metrica 1–3, seeds 0 and 1), official metric
+code, no Smart Tagging (it does not exist for these games). Models fitted or tuned on these games
+are scored on games they were not fitted or tuned on.
+
+| model | g1 | g2 | g3 | mean spellF1 | mean macroF1 | possessions found |
+|---|---:|---:|---:|---:|---:|---:|
+| controlled, as originally built (per-match regime fit) | 0.5584 | 0.5388 | 0.5632 | 0.5535 | 0.8529 | 0.76× |
+| **controlled, compliant: regimes frozen from the other two games, position-based movement** | 0.5557 | 0.5174 | 0.5565 | **0.5432** | 0.8385 | 0.76× |
+| Tejesh's Viterbi + shape, nested leave-one-game-out | 0.5671 | 0.5115 | 0.5403 | 0.5396 | 0.8547 | 0.70× |
+| v2-shape | 0.5372 | 0.5071 | 0.5406 | 0.5283 | 0.8513 | 0.67× |
+| v2 (tuned by its author on these games) | 0.5186 | 0.4994 | 0.5104 | 0.5095 | 0.8428 | 0.65× |
+| baseline_smooth50 | | | | 0.2585 | 0.6558 | – |
+
+Speed-scale robustness, same games: with movement taken from a speed field, regimes fitted on one
+speed scale and applied to another dropped controlled from 0.54 to 0.4165 (Tejesh's model showed
+the same failure: 0.540 → 0.451). With movement computed from positions over one second
+(`solution/code/possession/motion.py`), a calibration carried across speed scales scored 0.5420.
+
+**Decision:** submit compliant controlled. It ties with Tejesh's model, needs no tuning on these
+games, finds the most possessions, is robust to speed scale by construction, and has independent
+evidence on real tracking from Valentin's IDSSE protocol.
+
 ## Reproduce
 
 ```bash
