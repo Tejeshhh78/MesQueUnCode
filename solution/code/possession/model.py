@@ -10,6 +10,7 @@ from difflib import SequenceMatcher
 import numpy as np
 
 from .data import normalise_name
+from .motion import load_regimes
 
 
 @dataclass(frozen=True)
@@ -57,17 +58,16 @@ def fill_short_gaps(values, limit):
     return out
 
 
-def activity_evidence(speed, fit_mask, fps):
-    """Fit two local movement regimes with deterministic unsupervised EM.
+def fit_regimes(fit):
+    """Two movement regimes by deterministic unsupervised EM on log(1 + speed) samples.
 
-    These are NOT learned alive/dead labels: the faster regime only supplies
-    positive movement evidence. Missing speeds remain neutral.
+    Called only by calibrate_activity.py, on EXTERNAL games. Never on the provided match: the
+    organisers' rule clarification requires anything fitted to be fitted on external data.
     """
-    x = np.log1p(np.clip(speed, 0, 15))
-    fit = x[fit_mask][::fps]
+    fit = np.asarray(fit, dtype=np.float64)
     fit = fit[np.isfinite(fit)]
     if len(fit) < 10 or np.std(fit) < 0.03:
-        return np.zeros(len(speed)), {"fitted": False}
+        raise ValueError("too few or too uniform movement samples to fit two regimes")
     means = np.quantile(fit, [0.2, 0.8])
     variances = np.full(2, max(float(np.var(fit)), 0.02))
     weights = np.full(2, 0.5)
@@ -85,11 +85,22 @@ def activity_evidence(speed, fit_mask, fps):
         if change < 1e-7:
             break
     order = np.argsort(means)
-    means, variances, weights = means[order], variances[order], weights[order]
+    return means[order], variances[order], weights[order]
+
+
+def activity_evidence(speed, fit_mask, fps, regimes=None):
+    """Movement evidence from two regimes FROZEN from external games (motion.py).
+
+    These are NOT learned alive/dead labels: the faster regime only supplies positive movement
+    evidence. Missing speeds remain neutral. Nothing is estimated from the input: ``fit_mask``
+    and ``fps`` are kept for interface compatibility only.
+    """
+    means, variances, weights = regimes if regimes is not None else load_regimes()
+    x = np.log1p(np.clip(speed, 0, 15))
     likelihood = (-0.5 * (x[:, None] - means) ** 2 / variances
                   - 0.5 * np.log(variances) + np.log(weights))
     evidence = np.nan_to_num(likelihood[:, 1] - likelihood[:, 0], nan=0.0)
-    return np.clip(evidence, -4, 4), {"fitted": True,
+    return np.clip(evidence, -4, 4), {"fitted": "frozen from external games",
         "regime_speed_m_s": np.expm1(means).tolist(), "weights": weights.tolist()}
 
 

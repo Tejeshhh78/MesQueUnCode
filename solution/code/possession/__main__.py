@@ -18,6 +18,7 @@ from evaluation import possession_metrics as pm
 from . import __version__
 from .data import read_events, read_tracking
 from .model import PROFILES, predict, profile_config
+from .motion import CALIBRATION_PATH, robust_motion
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -80,6 +81,11 @@ def run(data_dir, output_dir, team, *, profile="controlled", diagnostics=False, 
     fingerprints = {Path(p).name: sha256(p) for p in paths}
     print("Reading and validating tactical tracking locally ...", flush=True)
     features = read_tracking(paths[0], paths[1], game["n_video_frames"], game["pitch"])
+    # Movement from positions over 1 s -- the same feature the frozen regimes were fitted on, on
+    # external games (motion.py). Nothing is fitted on this match.
+    from solution.loaders import load_tracking
+    tracking = load_tracking(GAME, data_dir)
+    features.mean_speed, features.fast_fraction = robust_motion(tracking.players[..., :2], game["fps"])
     events = read_events(paths[2], game["n_video_frames"], game["fps"])
     print("Computing evidence and temporal states ...", flush=True)
     blocks = half_video_blocks(GAME)
@@ -96,7 +102,7 @@ def run(data_dir, output_dir, team, *, profile="controlled", diagnostics=False, 
     runs = pm.valid_runs(codes)
     spells = pm.possession_spells(codes, runs)
     source_paths = sorted(Path(__file__).resolve().parent.glob("*.py")) + [
-        ROOT / "games.py", SOLUTION_ROOT / "requirements.txt"]
+        ROOT / "games.py", SOLUTION_ROOT / "requirements.txt", CALIBRATION_PATH]
     manifest = {
         "version": __version__, "team": team, "game": GAME, "profile": profile,
         "status": "selected",

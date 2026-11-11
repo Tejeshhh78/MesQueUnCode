@@ -1,0 +1,27 @@
+{
+  "regimes": {
+    "means": [
+      0.748899,
+      1.152665
+    ],
+    "variances": [
+      0.030992,
+      0.061254
+    ],
+    "weights": [
+      0.413021,
+      0.586979
+    ]
+  },
+  "feature": "log1p(mean player speed over a +/-0.48 s displacement), motion.robust_motion",
+  "provenance": {
+    "data": "Metrica Sports public sample games 1, 2, 3 (https://github.com/metrica-sports/sample-data)",
+    "labels": "not used for fitting (unsupervised EM); event-derived labels only for scoring",
+    "tracking": "degraded towards the automatic ATD by solution/external/degrade.py",
+    "seeds": [
+      0,
+      1
+    ],
+    "provided_match_used": false
+  }
+}
