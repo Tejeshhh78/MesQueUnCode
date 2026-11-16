@@ -38,7 +38,7 @@ ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE_TYPES = {"reference", "proxy", "synthetic"}
 SPLITS = {"training", "development", "final_test"}
 UNITS = {"positions": "normalised_pitch", "distances": "metres", "speeds": "metres_per_second"}
-DEFAULT_PROFILES = PROFILES
+DEFAULT_PROFILES = ("controlled",)
 METRICS = ("spell_f1_mean", "macro_f1", "accuracy", "alive_dead_f1", "team_acc_gt_alive",
            "team_acc_both_alive", "fragmentation", "mean_spell_duration_s",
            "n_gt_spells", "n_pred_spells", "n_graded", "n_abstain_on_graded")
@@ -210,6 +210,8 @@ def _feature_contract(values, match):
     n = match["n_frames"]
     shapes = {"ball": (n, 3), "distance": (n, 2), "player_speed": (n, 2),
               "mean_speed": (n,), "fast_fraction": (n,), "player_count": (n,)}
+    if "position_player_speed" in values:
+        shapes["position_player_speed"] = (n, 2)
     arrays = {}
 
     def numeric_tree(value):
@@ -262,7 +264,9 @@ def _input_paths(match, base, *, must_exist=True):
 
 def _load_inputs(match, paths):
     if match["inputs"]["format"] == "atd":
-        features = read_tracking(paths["metadata"], paths["tracking"], match["n_frames"], match["pitch_m"])
+        periods = [(b["period"], b["start"], b["stop"] - 1) for b in match["blocks"]]
+        features = read_tracking(paths["metadata"], paths["tracking"], match["n_frames"], match["pitch_m"],
+                                 position_motion=True, fps=25, blocks=periods)
         if tuple(features.teams) != tuple(match["teams"]):
             raise ValueError("Declared home/away team order disagrees with ATD metadata")
     else:
@@ -270,10 +274,14 @@ def _load_inputs(match, paths):
             with np.load(paths["features"], allow_pickle=False) as archive:
                 values = {name: archive[name] for name in ("ball", "distance", "player_speed",
                           "mean_speed", "fast_fraction", "player_count")}
+                if "position_player_speed" in archive:
+                    values["position_player_speed"] = archive["position_player_speed"]
         else:
             values = (json.loads(paths["features"].read_text(encoding="utf-8"))
                       if "features" in paths else match["inputs"].get("values", {}))
         features = _feature_contract(values, match)
+        if match["evidence_type"] == "reference" and match["inputs"].get("motion_feature") != "position-v1":
+            raise ValueError("Reference features use legacy provider motion; re-import with --position-motion before evaluating frozen regimes")
     events = read_events(paths["tagging"], match["n_frames"], 25) if "tagging" in paths else []
     return features, events
 
@@ -362,7 +370,7 @@ def _manifest_payload(manifest_path):
     return path, payload, manifest
 
 
-def corrupt_observations(features, pitch, seed):
+def corrupt_observations(features, pitch, seed, *, gaps_only=False):
     """Declared channel stress, not a reconstructed physical tracking scene.
 
     Random 10-frame ball gaps and 0.10 m XY noise; distances are cleared on gaps
@@ -371,18 +379,23 @@ def corrupt_observations(features, pitch, seed):
     result = copy.deepcopy(features)
     rng = np.random.default_rng(seed)
     n = len(result.ball)
-    starts = rng.random(n) < .002
+    starts = rng.random(n) < (.01 if gaps_only else .002)
     missing = np.zeros(n, dtype=bool)
-    for lag in range(min(10, n)):
+    for lag in range(min(25 if gaps_only else 10, n)):
         missing[lag:] |= starts[:n-lag]
-    result.ball[:, :2] += rng.normal(0, .10, (n, 2)) / np.asarray(pitch)
+    if not gaps_only:
+        result.ball[:, :2] += rng.normal(0, .10, (n, 2)) / np.asarray(pitch)
     result.ball[missing] = np.nan
     result.distance[missing] = np.nan
+    if gaps_only:
+        result.player_speed[missing] = np.nan
+        if result.position_player_speed is not None:
+            result.position_player_speed[missing] = np.nan
     return result
 
 
 def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, configs=None, bootstrap_n=0,
-                      baseline="controlled", diagnostics=False, timing_runs=0, stress_seed=None):
+                      baseline="controlled", diagnostics=False, timing_runs=0, stress_seed=None, stress_mode="channels"):
     """Return aggregate results only; labels are parsed after all profile predictions."""
     if purpose not in {"development", "final_test"}:
         raise ValueError("Choose development or final_test explicitly")
@@ -390,6 +403,8 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
         raise ValueError("Profiles must be unique, include the baseline, and use supported model profiles")
     _integer(bootstrap_n, "bootstrap_n")
     _integer(timing_runs, "timing_runs")
+    if stress_mode not in {"channels", "ball_gaps"}:
+        raise ValueError("Unknown observation stress mode")
     if stress_seed is not None:
         _integer(stress_seed, "stress_seed")
         if purpose != "development":
@@ -433,7 +448,8 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
         raise ValueError("No matches belong to the explicitly selected split")
     protected_blobs, protected_hashes = _protected_git_blobs(), _known_competition_hashes()
     sources = [Path(__file__), *sorted((ROOT / "solution/code/possession").glob("*.py")),
-               ROOT / "evaluation/possession_metrics.py", ROOT / "games.py", ROOT / "solution/requirements.txt"]
+               ROOT / "evaluation/possession_metrics.py", ROOT / "games.py", ROOT / "solution/requirements.txt",
+               ROOT / "solution/code/import_idsse.py", ROOT / "solution/code/possession/activity_calibration.json"]
     source_hashes = {file.relative_to(ROOT).as_posix(): hashlib.sha256(file.read_bytes()).hexdigest() for file in sources}
     configurations = {profile: (configs or {}).get(profile, profile_config(profile)) for profile in profiles}
     rows = []
@@ -441,7 +457,7 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
         fingerprints = {role: _file_record(file, protected_blobs, protected_hashes) for role, file in paths.items()}
         features, events = _load_inputs(match, paths)
         if stress_seed is not None:
-            features = corrupt_observations(features, match["pitch_m"], stress_seed)
+            features = corrupt_observations(features, match["pitch_m"], stress_seed, gaps_only=stress_mode == "ball_gaps")
         predictions, seconds, traces, repetitions = {}, {}, {}, {p: [] for p in profiles}
         for profile in profiles:
             inputs = copy.deepcopy(features)
@@ -519,8 +535,10 @@ def evaluate_manifest(manifest_path, *, purpose, profiles=DEFAULT_PROFILES, conf
             "profiles": {profile: configurations[profile].to_dict() for profile in profiles},
             "baseline": baseline, "timing_runs": timing_runs,
             "observation_stress": None if stress_seed is None else {
-                "seed": stress_seed, "burst_start_probability": .002, "burst_frames": 10,
-                "xy_noise_sigma_m": .10, "scope": "feature-channel consistency; retained distances unperturbed"},
+                "seed": stress_seed, "burst_start_probability": .01 if stress_mode == "ball_gaps" else .002,
+                "burst_frames": 25 if stress_mode == "ball_gaps" else 10,
+                "xy_noise_sigma_m": 0 if stress_mode == "ball_gaps" else .10,
+                "scope": "synthetic ball-observation deletion only; retained geometry unchanged" if stress_mode == "ball_gaps" else "feature-channel consistency; retained distances unperturbed"},
             "runtime_scope": "predict_only_excludes_loading_and_input_copying",
             "automatic_promotion": False, "provenance_is_self_declared": True,
             "guard_coverage": {"protected_git_blobs": len(protected_blobs), "known_competition_hashes": len(protected_hashes)},
@@ -541,6 +559,7 @@ def main(argv=None):
     parser.add_argument("--diagnostics", action="store_true")
     parser.add_argument("--timing-runs", type=int, default=0)
     parser.add_argument("--stress-seed", type=int, help="Development-only observation-channel corruption")
+    parser.add_argument("--stress-mode", choices=("channels", "ball_gaps"), default="channels")
     parser.add_argument("--bootstrap", type=int, default=1000)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "solution/reports/independent")
     args = parser.parse_args(argv)
@@ -553,7 +572,7 @@ def main(argv=None):
             raise ValueError("Report already exists; preserve it and use a different output directory")
         report = evaluate_manifest(args.manifest, purpose=purpose, profiles=tuple(args.profiles), bootstrap_n=args.bootstrap,
                                    baseline=args.baseline, diagnostics=args.diagnostics, timing_runs=args.timing_runs,
-                                   stress_seed=args.stress_seed)
+                                   stress_seed=args.stress_seed, stress_mode=args.stress_mode)
         args.output_dir.mkdir(parents=True, exist_ok=True)
         # Preserve previous experiments and final-test records rather than silently overwriting.
         with target.open("x", encoding="utf-8", newline="\n") as handle:

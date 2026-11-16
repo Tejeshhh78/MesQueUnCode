@@ -27,7 +27,7 @@ import numpy as np  # noqa: E402
 from evaluation import possession_metrics as pm  # noqa: E402
 from solution.code.possession import model  # noqa: E402
 from solution.code.possession.data import Features  # noqa: E402
-from solution.code.possession.motion import CALIBRATION_PATH, robust_motion  # noqa: E402
+from solution.code.possession.motion import CALIBRATION_PATH, robust_motion, apply_position_motion  # noqa: E402
 from solution.external import build, degrade  # noqa: E402
 from solution import features as solution_features  # noqa: E402
 from starter.baseline import smooth  # noqa: E402
@@ -65,8 +65,14 @@ def external_features(match, pitch):
         distance[ok, side] = minimum[ok]
         player_speed[ok, side] = short[np.flatnonzero(ok), nearest[ok]]
     mean_speed, fast = robust_motion(players_m, FPS)
-    return Features(np.column_stack([ball, np.zeros(n)]), distance, player_speed, mean_speed, fast,
-                    visible.sum(axis=1).astype(np.int16), ("Home", "Away"))
+    features = Features(np.column_stack([ball, np.zeros(n)]), distance, player_speed, mean_speed, fast,
+                        visible.sum(axis=1).astype(np.int16), ("Home", "Away"))
+    # Preserve collective calibration samples; add only the optional position-speed channel.
+    positional = Features(features.ball, distance, player_speed, mean_speed, fast,
+                          features.player_count, features.teams)
+    apply_position_motion(positional, players_m, tracking.team, pitch, FPS, match.halves)
+    features.position_player_speed = positional.position_player_speed
+    return features
 
 
 def load_games():

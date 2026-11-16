@@ -11,6 +11,7 @@ import numpy as np
 
 from .data import normalise_name
 from .motion import load_regimes
+from .release import PROFILE as SELECTED_PROFILE
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,11 @@ class Config:
     team_switch_cost: float = 12.0
     stoppage_switch_cost: float = 24.0
     tag_strength: float = 1.25
+    position_motion: bool = False
+    contact_evidence: bool = False
+    retain_gap_memory: bool = False
+    unknown_speed_guard: bool = False
+    contact_switch_discount: bool = False
 
     def to_dict(self):
         return asdict(self)
@@ -172,7 +178,7 @@ def tagging_evidence(events, names, n, fps, ball_speed, collective_speed):
     return support[:, 0] - support[:, 1], live - dead + restart_live, unknown_teams
 
 
-PROFILES = ("controlled",)
+PROFILES = ("controlled", "position_motion", "contact", "gap_memory", "speed_guard", "improved", "short_control")
 TRACE_FIELDS = ("geometry", "tag_team", "team", "activity", "moving", "missing",
                 "stationary", "slow", "outside", "status_tags", "alive",
                 "ball_observed", "ball_rejected")
@@ -182,10 +188,41 @@ def profile_config(profile):
     """Explicit experimental defaults; caller-supplied configurations take precedence."""
     if profile not in PROFILES:
         raise ValueError(f"Unknown model profile: {profile}")
-    return Config()
+    combined = profile in {"improved", "short_control"}
+    return Config(position_motion=profile == "position_motion" or combined,
+                  contact_evidence=profile == "contact" or combined,
+                  retain_gap_memory=profile == "gap_memory" or combined,
+                  unknown_speed_guard=profile == "speed_guard" or combined,
+                  contact_switch_discount=profile == "short_control")
 
 
-def controlled_geometry(distance, player_speed, ball_speed, valid, dead_like, fps, config):
+def contact_strength(ball_m, observed, fps):
+    """Bounded velocity-change cue, requiring every ORIGINAL observation in the window.
+
+    Deflections can also produce this cue; it is supporting evidence, not a touch label.
+    """
+    n = len(ball_m)
+    out = np.zeros(n)
+    lag = max(1, round(0.12 * fps))
+    if n <= 2 * lag:
+        return out
+    step = np.linalg.norm(np.diff(ball_m, axis=0), axis=1) * fps
+    bad = ~np.asarray(observed, dtype=bool)
+    invalid_step = ~np.isfinite(step) | (step > 45)
+    frame_bad = bad.copy()
+    frame_bad[1:] |= invalid_step
+    counts = np.r_[0, np.cumsum(frame_bad)]
+    center = np.arange(lag, n - lag)
+    # A bad incoming step on the left endpoint is outside the cue window.
+    complete = observed[center - lag] & ((counts[center + lag + 1] - counts[center - lag + 1]) == 0)
+    before = (ball_m[center] - ball_m[center - lag]) * fps / lag
+    after = (ball_m[center + lag] - ball_m[center]) * fps / lag
+    change = np.linalg.norm(after - before, axis=1)
+    out[center] = np.where(complete, np.nan_to_num(np.clip((change - 3) / 7, 0, 1)), 0)
+    return out
+
+
+def controlled_geometry(distance, player_speed, ball_speed, valid, dead_like, fps, config, contact=None):
     """Compute bounded temporal-control geometry evidence within a single period block.
 
     Distinguishes sustained close ball control (including contested receptions)
@@ -218,7 +255,14 @@ def controlled_geometry(distance, player_speed, ball_speed, valid, dead_like, fp
     excess_speed = np.maximum(0.0, b_speed - np.clip(v_near, 0.0, 12.0))
     speed_gate = 1.0 - 0.85 * np.clip((excess_speed - 5.0) / 10.0, 0.0, 1.0)
     w_close = np.where(valid, close_reach * speed_gate, 0.0)
+    if config.unknown_speed_guard:
+        w_close = np.where(np.isfinite(ball_speed), w_close, np.minimum(w_close, 0.5))
     g_inst = np.where(valid, raw_margin * w_close, 0.0)
+    if config.contact_evidence and contact is not None:
+        weight = np.where(valid & ~dead_like, contact * np.exp(-((min_d / 1.2) ** 2)), 0.0)
+        touch = 2.5 * np.clip((eff_a - eff_h) / 0.6, -1, 1)
+        g_inst = (1 - weight) * g_inst + weight * touch
+        w_close = np.maximum(w_close, weight)
     w = max(3, round(0.28 * fps))
     unit = np.sign(g_inst) * np.minimum(1.0, np.abs(g_inst) / 0.5)
     csum = np.concatenate(([0.0], np.cumsum(unit)))
@@ -272,7 +316,8 @@ def controlled_geometry(distance, player_speed, ball_speed, valid, dead_like, fp
     c_mem = np.clip(np.abs(m) / 0.6, 0.0, 1.0)
     g_loose = c_mem * (0.85 * m) + (1.0 - c_mem) * (0.5 * base)
     combined = np.clip(r * g_close + (1.0 - r) * g_loose, -2.5, 2.5)
-    return np.where(valid, combined, 0.0)
+    fallback = 0.85 * m if config.retain_gap_memory else 0.0
+    return np.where(valid, combined, fallback)
 
 
 def emissions(features, events, blocks, pitch, fps, config=None, *, profile="controlled", trace=None):
@@ -297,7 +342,7 @@ def emissions(features, events, blocks, pitch, fps, config=None, *, profile="con
         length = stop - start
         ball = features.ball[start:stop, :2]
         sensible = np.isfinite(ball).all(axis=1) & (np.abs(ball - 0.5) <= 0.65).all(axis=1)
-        observed = sensible.copy()
+        observed = np.isfinite(ball).all(axis=1)
         ball = np.where(sensible[:, None], ball, np.nan)
         xy = fill_short_gaps(ball, round(config.short_gap_s * fps)) * np.asarray(pitch)
         lag = max(1, fps // 8)
@@ -316,10 +361,14 @@ def emissions(features, events, blocks, pitch, fps, config=None, *, profile="con
         distance = features.distance[start:stop]
         valid = np.isfinite(distance).all(axis=1) & sensible
         dead_like = outside | ((stationary * slow) > 0.5)
-        geometry = controlled_geometry(
-            distance, features.player_speed[start:stop], ball_speed,
-            valid, dead_like, fps, config,
-        )
+        player_speed = features.player_speed
+        if config.position_motion:
+            if features.position_player_speed is None:
+                raise ValueError("Position-motion profile requires position_player_speed; regenerate external features with --position-motion")
+            player_speed = features.position_player_speed
+        contact = contact_strength(ball * np.asarray(pitch), sensible, fps) if config.contact_evidence else None
+        geometry = controlled_geometry(distance, player_speed[start:stop], ball_speed,
+                                       valid, dead_like, fps, config, contact)
         local_events = [{**e, "start": max(0, e["start"] - start),
                          "stop": min(length, e["stop"] - start)}
                         for e in events if e["start"] < stop and e["stop"] > start]
@@ -342,7 +391,7 @@ def emissions(features, events, blocks, pitch, fps, config=None, *, profile="con
             for name, value in zip(TRACE_FIELDS, values):
                 trace[name][start:stop] = value
             trace["scores"][start:stop] = out[start:stop]
-    return out, {"profile": profile, "experimental": False,
+    return out, {"profile": profile, "experimental": profile not in {"controlled", SELECTED_PROFILE},
                  "activity_model": model_report, "unknown_team_tags": unknown}
 
 
@@ -357,7 +406,8 @@ def decode(scores, switch_cost, min_frames=1):
     cost = np.asarray(switch_cost, dtype=np.float64)
     if scores.ndim != 2 or scores.shape[1] != 3 or not np.isfinite(scores).all():
         raise ValueError("Decoder requires finite scores with shape (frames, 3)")
-    if cost.shape != (3, 3) or not np.isfinite(cost).all() or np.any(cost < 0):
+    dynamic = cost.ndim == 3
+    if cost.shape not in ((3, 3), (len(scores), 3, 3)) or not np.isfinite(cost).all() or np.any(cost < 0):
         raise ValueError("Invalid switching costs")
     if not isinstance(min_frames, (int, np.integer)) or not 1 <= min_frames <= 80:
         raise ValueError("Minimum duration must be between 1 and 80 frames")
@@ -377,10 +427,11 @@ def decode(scores, switch_cost, min_frames=1):
     back = bytearray(n * 3)
     alternatives = ((1, 2), (0, 2), (0, 1))
     for frame in range(1, n):
+        frame_penalties = penalties[frame] if dynamic else penalties
         current = []
         for team, (left, right) in enumerate(alternatives):
-            left_score = previous[left][-1] - penalties[left][team]
-            right_score = previous[right][-1] - penalties[right][team]
+            left_score = previous[left][-1] - frame_penalties[left][team]
+            right_score = previous[right][-1] - frame_penalties[right][team]
             # Match np.argmax: ties favour the smaller team index.
             source, enter = (left, left_score) if left_score >= right_score else (right, right_score)
             emission = columns[team][frame]
@@ -411,6 +462,34 @@ def decode(scores, switch_cost, min_frames=1):
     return path
 
 
+def contact_switch_costs(ball, distance, scores, pitch, fps, base_cost):
+    """Destination-frame H/A discounts supported by observable ball actions only.
+
+    A strong score alone is insufficient. Stoppage transitions never receive a discount.
+    No missing observation may be used as a contact, even inside an expanded cue window.
+    """
+    n = len(ball)
+    valid = np.isfinite(ball[:, :2]).all(axis=1) & np.isfinite(distance).all(axis=1)
+    valid &= (np.abs(ball[:, :2] - 0.5) <= 0.65).all(axis=1)
+    nearest = np.min(np.where(np.isfinite(distance), distance, np.inf), axis=1)
+    support = contact_strength(ball[:, :2] * np.asarray(pitch), valid, fps) * np.exp(-((nearest / 1.2) ** 2))
+    radius = max(1, round(.12 * fps))
+    expanded = support.copy()
+    for offset in range(1, min(radius + 1, n)):
+        expanded[offset:] = np.maximum(expanded[offset:], support[:-offset])
+        expanded[:-offset] = np.maximum(expanded[:-offset], support[offset:])
+    direction = np.where(valid, np.sign(distance[:, 1] - distance[:, 0]), 0.)
+    consistency = rolling_mean(direction, 3)
+    cost = np.broadcast_to(base_cost, (n, 3, 3)).copy()
+    for destination in (0, 1):
+        sign = 1 if destination == 0 else -1
+        other = 1 - destination
+        margin = scores[:, destination] - np.maximum(scores[:, other], scores[:, 2])
+        credible = valid & (expanded >= .35) & (margin >= .75) & (sign * consistency >= 2/3)
+        cost[credible, other, destination] -= 6 * expanded[credible]
+    return cost
+
+
 def predict(features, events, blocks, pitch, fps, config=None, *, profile="controlled", trace=None):
     if config is None:
         config = profile_config(profile)
@@ -422,6 +501,10 @@ def predict(features, events, blocks, pitch, fps, config=None, *, profile="contr
     alphabet = np.array(["H", "A", "D"])
     for _, start, last in blocks:
         local_scores = scores[start:last + 1]
-        labels[start:last + 1] = alphabet[decode(local_scores, cost,
+        local_cost = cost
+        if config.contact_switch_discount:
+            local_cost = contact_switch_costs(features.ball[start:last + 1], features.distance[start:last + 1],
+                                              local_scores, pitch, fps, cost)
+        labels[start:last + 1] = alphabet[decode(local_scores, local_cost,
                                                  max(1, round(config.min_state_s * fps)))]
     return labels, report

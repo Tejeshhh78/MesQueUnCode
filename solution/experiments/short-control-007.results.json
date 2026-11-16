@@ -1,0 +1,469 @@
+{
+  "experiment_id": "short-control-007",
+  "scope": "Two reused IDSSE development games only; no competition scoring or new final test.",
+  "protocol": {
+    "id": "short-control-007",
+    "declared_before_candidate_results": true,
+    "baseline": "improved",
+    "candidate": "short_control",
+    "development": [
+      "J03WMX",
+      "J03WOH"
+    ],
+    "excluded_consumed_final": [
+      "J03WN1",
+      "J03WOY",
+      "J03WPY",
+      "J03WQQ"
+    ],
+    "reserved_unopened": [
+      "J03WR9"
+    ],
+    "basis": "Development diagnosis of improved: 301 reference possessions <2 s, 30 matched at IoU .5; 160 have the correct local H/A/D winner on a strict majority of frames. 26 are shorter than the existing .32 s minimum. These associations do not establish causation.",
+    "change": "Keep all improved emissions, D costs and .32 s minimum unchanged. Discount destination-frame H/A entry cost from 12 by 6 times bounded contact support, only if support >=.35, the destination emission beats both alternatives by >=.75 and nearest-team sign is consistent in a centred 3-frame window (agreement >=2/3). Contact support uses the existing complete-original-observation .12 s velocity change cue times exp(-(nearest_distance/1.2)^2), expanded by +/- .12 s for timestamp uncertainty. Missing/impossible observations provide no contact support. Exact Viterbi accepts frame-dependent transition costs. Costs stay 6..12; no reference input at inference.",
+    "variant_budget": 1,
+    "parameter_basis": "Bounded contact-specific hypothesis using the existing contact time/proximity scales. Fixed 50% maximum discount; .75 positive margin retained from historical experiment 004. No grid search.",
+    "promotion_gates": {
+      "minimum_additional_short_matches": 1,
+      "minimum_mean_spell_f1_gain": 0.005,
+      "maximum_per_match_spell_f1_loss": 0,
+      "maximum_per_match_macro_f1_loss": 0.005,
+      "maximum_per_match_dead_recall_loss": 0.02,
+      "maximum_pooled_extra_false_positives": 10
+    },
+    "stress": "Same separate seed-606 observation-deletion check as 006. Not a selection set or new real-match evidence.",
+    "stopping_rule": "Evaluate one candidate once; retain failed results without threshold changes. Keep improved and controlled reproducible. No competition scoring, no consumed final games, no promotion to default. Any clean development success still needs fresh physical matches."
+  },
+  "protocol_sha256": "13995298bd2c0d9595b71cf9a70758cd059d50460636ce1f93c32c59f6f866e6",
+  "runner_sha256": "7465641bcbba8c2a782656413ab125fbeb804799a532cd99d090a97fea112d4e",
+  "source_sha256": {
+    "solution/code/independent_evaluation.py": "7debdfd379eb0f958060acafc4dc0d26bbccbef4540cad676ba6d032bc93b612",
+    "solution/code/possession/__init__.py": "04cd341d5b38fc09f9c1dcf072215eeb9f6d0adc83854170c24cbca42faf00d6",
+    "solution/code/possession/__main__.py": "3bd606f642893138565051c9c9a726a68c862b9b8fc33c51019b2fc002c16142",
+    "solution/code/possession/data.py": "c52ccb77564d98dfde2ff1d85654a23ae0ada6ab195915ccd6b31b451995bb02",
+    "solution/code/possession/diagnostics.py": "3b316de1d9d3efdd192fb7abdececb838db1a9de8a8c0050f9415ed17c7aa198",
+    "solution/code/possession/model.py": "f43a1e467585efad16e1cf324aefe90f823be6b319676a109d329454db9ff6a5",
+    "solution/code/possession/motion.py": "425f14b49e8cd8a4192d46ca8ff16d3cf301daaf02230e50b6625a37b8356660",
+    "evaluation/possession_metrics.py": "32c878630c74fb52a90c301485d6dff806509d8e933b1177b6035ee8e8f42b80",
+    "games.py": "473bf0502a28d93ff49fe5c20be4e546e30a9d8fa4112ab50b1ecdaf44233064",
+    "solution/requirements.txt": "aaaf1ed102584db0b972b2c28514b483029824c50fc9465f4d5b7e4b36804941",
+    "solution/code/import_idsse.py": "ca0913ce7b7a9ac15a68586850d5fe50fba9f2e10f560118cbc36f554775cf3d",
+    "solution/code/possession/activity_calibration.json": "4f37cdc01e863168515f30ca68954e9ab33b8dc4a2f82a38a1ebdcc6c09e5b80"
+  },
+  "environment": {
+    "python": "3.12.14",
+    "numpy": "2.3.5",
+    "pandas": "3.0.1"
+  },
+  "profiles": {
+    "improved": {
+      "control_radius_m": 6.0,
+      "distance_margin_m": 2.5,
+      "short_gap_s": 0.32,
+      "motion_window_s": 1.0,
+      "min_state_s": 0.32,
+      "team_switch_cost": 12.0,
+      "stoppage_switch_cost": 24.0,
+      "tag_strength": 1.25,
+      "position_motion": true,
+      "contact_evidence": true,
+      "retain_gap_memory": true,
+      "unknown_speed_guard": true,
+      "contact_switch_discount": false
+    },
+    "short_control": {
+      "control_radius_m": 6.0,
+      "distance_margin_m": 2.5,
+      "short_gap_s": 0.32,
+      "motion_window_s": 1.0,
+      "min_state_s": 0.32,
+      "team_switch_cost": 12.0,
+      "stoppage_switch_cost": 24.0,
+      "tag_strength": 1.25,
+      "position_motion": true,
+      "contact_evidence": true,
+      "retain_gap_memory": true,
+      "unknown_speed_guard": true,
+      "contact_switch_discount": true
+    }
+  },
+  "baseline_matches_experiment_006": true,
+  "gates": {
+    "short_matches_gain": true,
+    "spell_mean_gain": true,
+    "no_per_match_spell_loss": true,
+    "macro_guard": true,
+    "dead_guard": true,
+    "false_positive_guard": true
+  },
+  "accepted_on_development": true,
+  "clean": {
+    "means": {
+      "improved": {
+        "spell_f1_mean": 0.5320998298636253,
+        "macro_f1": 0.8800242362649998,
+        "accuracy": 0.8886965085080434,
+        "alive_dead_f1": 0.9527697209729027,
+        "team_acc_gt_alive": 0.8819015352744926,
+        "team_acc_both_alive": 0.8944065508757117,
+        "fragmentation": 0.7131256139806628,
+        "mean_spell_duration_s": 11.254397044911933,
+        "n_gt_spells": 456.5,
+        "n_pred_spells": 298.5,
+        "n_graded": 141590.5,
+        "n_abstain_on_graded": 0.0
+      },
+      "short_control": {
+        "spell_f1_mean": 0.5467225666818667,
+        "macro_f1": 0.8818311146118454,
+        "accuracy": 0.8902030178915408,
+        "alive_dead_f1": 0.9527900059964138,
+        "team_acc_gt_alive": 0.8846313221498132,
+        "team_acc_both_alive": 0.8971216058795244,
+        "fragmentation": 0.7402215500749703,
+        "mean_spell_duration_s": 10.715155752429165,
+        "n_gt_spells": 456.5,
+        "n_pred_spells": 313.5,
+        "n_graded": 141590.5,
+        "n_abstain_on_graded": 0.0
+      }
+    },
+    "observation_stress": null,
+    "timing_runs": 3,
+    "matches": [
+      {
+        "match_id": "DFL-MAT-J03WMX",
+        "n_frames": 145967,
+        "input_sha256": {
+          "features": {
+            "sha256": "2629d1d5c656bb529e64d4296682119a854ac14fc5eae91542f337545606d7a8",
+            "bytes": 6230602
+          },
+          "labels": {
+            "sha256": "34a95519621218a775e89a1f73f24c2400ec1608f6c370bcb48a72fe9d2e5ceb",
+            "bytes": 1202605
+          }
+        },
+        "variants": {
+          "improved": {
+            "spell_f1": 0.5218863361547763,
+            "macro_f1": 0.8909107559997443,
+            "dead_recall": 0.9160533350935675,
+            "iou_05": {
+              "precision": 0.6930379746835443,
+              "recall": 0.42857142857142855,
+              "f1": 0.5296251511487304,
+              "n_matched": 219,
+              "n_spurious": 97,
+              "n_missed": 292
+            },
+            "short_under_2s": {
+              "min_s": 0.0,
+              "max_s": 2.0,
+              "reference_count": 191,
+              "matched_iou_05_count": 17,
+              "missed_iou_05_count": 174,
+              "recall_iou_05": 0.08900523560209424,
+              "likely_split_count": 0,
+              "wrong_team_overlap_count": 131,
+              "majority_wrong_team_count": 98
+            },
+            "prediction_sha256": "300b9c80cdcbeb5c3f67ff9df44c570e215da05538c5a288a4dd7aeb628f544e",
+            "predict_seconds": 1.5041134001221508
+          },
+          "short_control": {
+            "spell_f1": 0.5387173396674585,
+            "macro_f1": 0.8928285177190972,
+            "dead_recall": 0.9160533350935675,
+            "iou_05": {
+              "precision": 0.6978851963746223,
+              "recall": 0.4520547945205479,
+              "f1": 0.5486935866983373,
+              "n_matched": 231,
+              "n_spurious": 100,
+              "n_missed": 280
+            },
+            "short_under_2s": {
+              "min_s": 0.0,
+              "max_s": 2.0,
+              "reference_count": 191,
+              "matched_iou_05_count": 22,
+              "missed_iou_05_count": 169,
+              "recall_iou_05": 0.11518324607329843,
+              "likely_split_count": 0,
+              "wrong_team_overlap_count": 132,
+              "majority_wrong_team_count": 93
+            },
+            "prediction_sha256": "c504ded1a4012357fec58e07ca4b91070b169935ed29f8ec9126cf22361b4170",
+            "predict_seconds": 1.4706337000243366
+          }
+        }
+      },
+      {
+        "match_id": "DFL-MAT-J03WOH",
+        "n_frames": 137214,
+        "input_sha256": {
+          "features": {
+            "sha256": "ff75ba0207ee729188b195da1f64766a5f270460dd830733deb935c77ca5da9d",
+            "bytes": 5717207
+          },
+          "labels": {
+            "sha256": "21be55541093c4a710eb752f2878a023300a9f8fd783b9215c58879c99add8c7",
+            "bytes": 1123828
+          }
+        },
+        "variants": {
+          "improved": {
+            "spell_f1": 0.5423133235724743,
+            "macro_f1": 0.8691377165302553,
+            "dead_recall": 0.8803566777490079,
+            "iou_05": {
+              "precision": 0.6690391459074733,
+              "recall": 0.46766169154228854,
+              "f1": 0.5505124450951683,
+              "n_matched": 188,
+              "n_spurious": 93,
+              "n_missed": 214
+            },
+            "short_under_2s": {
+              "min_s": 0.0,
+              "max_s": 2.0,
+              "reference_count": 110,
+              "matched_iou_05_count": 13,
+              "missed_iou_05_count": 97,
+              "recall_iou_05": 0.11818181818181818,
+              "likely_split_count": 0,
+              "wrong_team_overlap_count": 69,
+              "majority_wrong_team_count": 54
+            },
+            "prediction_sha256": "3cc54d6ea2d2577e885792330d2a58fa9ad231e65a1fa0a69d57887620361167",
+            "predict_seconds": 1.3714012999553233
+          },
+          "short_control": {
+            "spell_f1": 0.554727793696275,
+            "macro_f1": 0.8708337115045935,
+            "dead_recall": 0.8803107141215585,
+            "iou_05": {
+              "precision": 0.6655405405405406,
+              "recall": 0.4900497512437811,
+              "f1": 0.5644699140401146,
+              "n_matched": 197,
+              "n_spurious": 99,
+              "n_missed": 205
+            },
+            "short_under_2s": {
+              "min_s": 0.0,
+              "max_s": 2.0,
+              "reference_count": 110,
+              "matched_iou_05_count": 17,
+              "missed_iou_05_count": 93,
+              "recall_iou_05": 0.15454545454545454,
+              "likely_split_count": 0,
+              "wrong_team_overlap_count": 69,
+              "majority_wrong_team_count": 52
+            },
+            "prediction_sha256": "48dc444506260d20d168c02bfd6862a05b8d6747653b53489c2503f162f38b78",
+            "predict_seconds": 1.773721600184217
+          }
+        }
+      }
+    ]
+  },
+  "artificial_ball_gaps": {
+    "means": {
+      "improved": {
+        "spell_f1_mean": 0.49482716422637807,
+        "macro_f1": 0.864944574291896,
+        "accuracy": 0.8746531712880894,
+        "alive_dead_f1": 0.9453139604213776,
+        "team_acc_gt_alive": 0.8588961911739914,
+        "team_acc_both_alive": 0.8824668052434393,
+        "fragmentation": 0.7131256139806628,
+        "mean_spell_duration_s": 11.373947942826295,
+        "n_gt_spells": 456.5,
+        "n_pred_spells": 292.5,
+        "n_graded": 141590.5,
+        "n_abstain_on_graded": 0.0
+      },
+      "short_control": {
+        "spell_f1_mean": 0.5013226629144314,
+        "macro_f1": 0.8660707719294904,
+        "accuracy": 0.8755734240670022,
+        "alive_dead_f1": 0.9453111651479236,
+        "team_acc_gt_alive": 0.8606106295880973,
+        "team_acc_both_alive": 0.8842151005946668,
+        "fragmentation": 0.7285688433896903,
+        "mean_spell_duration_s": 11.050721003134797,
+        "n_gt_spells": 456.5,
+        "n_pred_spells": 301.0,
+        "n_graded": 141590.5,
+        "n_abstain_on_graded": 0.0
+      }
+    },
+    "observation_stress": {
+      "seed": 606,
+      "burst_start_probability": 0.01,
+      "burst_frames": 25,
+      "xy_noise_sigma_m": 0,
+      "scope": "synthetic ball-observation deletion only; retained geometry unchanged"
+    },
+    "timing_runs": 0,
+    "matches": [
+      {
+        "match_id": "DFL-MAT-J03WMX",
+        "n_frames": 145967,
+        "input_sha256": {
+          "features": {
+            "sha256": "2629d1d5c656bb529e64d4296682119a854ac14fc5eae91542f337545606d7a8",
+            "bytes": 6230602
+          },
+          "labels": {
+            "sha256": "34a95519621218a775e89a1f73f24c2400ec1608f6c370bcb48a72fe9d2e5ceb",
+            "bytes": 1202605
+          }
+        },
+        "variants": {
+          "improved": {
+            "spell_f1": 0.48077858880778584,
+            "macro_f1": 0.8729722425008749,
+            "dead_recall": 0.9122083237070531,
+            "iou_05": {
+              "precision": 0.639871382636656,
+              "recall": 0.38943248532289626,
+              "f1": 0.4841849148418491,
+              "n_matched": 199,
+              "n_spurious": 112,
+              "n_missed": 312
+            },
+            "short_under_2s": {
+              "min_s": 0.0,
+              "max_s": 2.0,
+              "reference_count": 191,
+              "matched_iou_05_count": 10,
+              "missed_iou_05_count": 181,
+              "recall_iou_05": 0.05235602094240838,
+              "likely_split_count": 0,
+              "wrong_team_overlap_count": 124,
+              "majority_wrong_team_count": 100
+            },
+            "prediction_sha256": "a1dc7e81d6e7847918ce5c99e4bae78f1e1b4b8962239888d2e8a9e1efd22e43",
+            "predict_seconds": 1.6026729000732303
+          },
+          "short_control": {
+            "spell_f1": 0.48819277108433734,
+            "macro_f1": 0.8737294747268486,
+            "dead_recall": 0.9122083237070531,
+            "iou_05": {
+              "precision": 0.6363636363636364,
+              "recall": 0.3972602739726027,
+              "f1": 0.48915662650602404,
+              "n_matched": 203,
+              "n_spurious": 116,
+              "n_missed": 308
+            },
+            "short_under_2s": {
+              "min_s": 0.0,
+              "max_s": 2.0,
+              "reference_count": 191,
+              "matched_iou_05_count": 13,
+              "missed_iou_05_count": 178,
+              "recall_iou_05": 0.06806282722513089,
+              "likely_split_count": 0,
+              "wrong_team_overlap_count": 124,
+              "majority_wrong_team_count": 96
+            },
+            "prediction_sha256": "ef80b6795583f799b4b515a269c3d431afb805744b7668482097fade1906783f",
+            "predict_seconds": 2.080885199829936
+          }
+        }
+      },
+      {
+        "match_id": "DFL-MAT-J03WOH",
+        "n_frames": 137214,
+        "input_sha256": {
+          "features": {
+            "sha256": "ff75ba0207ee729188b195da1f64766a5f270460dd830733deb935c77ca5da9d",
+            "bytes": 5717207
+          },
+          "labels": {
+            "sha256": "21be55541093c4a710eb752f2878a023300a9f8fd783b9215c58879c99add8c7",
+            "bytes": 1123828
+          }
+        },
+        "variants": {
+          "improved": {
+            "spell_f1": 0.5088757396449703,
+            "macro_f1": 0.8569169060829172,
+            "dead_recall": 0.8787173083699765,
+            "iou_05": {
+              "precision": 0.6386861313868614,
+              "recall": 0.43532338308457713,
+              "f1": 0.5177514792899408,
+              "n_matched": 175,
+              "n_spurious": 99,
+              "n_missed": 227
+            },
+            "short_under_2s": {
+              "min_s": 0.0,
+              "max_s": 2.0,
+              "reference_count": 110,
+              "matched_iou_05_count": 11,
+              "missed_iou_05_count": 99,
+              "recall_iou_05": 0.1,
+              "likely_split_count": 0,
+              "wrong_team_overlap_count": 68,
+              "majority_wrong_team_count": 55
+            },
+            "prediction_sha256": "46f535c3d6a0fc3509bb9422f19632f7822db6815f47f96b0a568d750b1b2396",
+            "predict_seconds": 1.4521298001054674
+          },
+          "short_control": {
+            "spell_f1": 0.5144525547445256,
+            "macro_f1": 0.8584120691321324,
+            "dead_recall": 0.8786713447425271,
+            "iou_05": {
+              "precision": 0.6325088339222615,
+              "recall": 0.44527363184079605,
+              "f1": 0.5226277372262774,
+              "n_matched": 179,
+              "n_spurious": 104,
+              "n_missed": 223
+            },
+            "short_under_2s": {
+              "min_s": 0.0,
+              "max_s": 2.0,
+              "reference_count": 110,
+              "matched_iou_05_count": 14,
+              "missed_iou_05_count": 96,
+              "recall_iou_05": 0.12727272727272726,
+              "likely_split_count": 0,
+              "wrong_team_overlap_count": 67,
+              "majority_wrong_team_count": 53
+            },
+            "prediction_sha256": "eec5c76adfdb3679b8a9022626a4f4ea7154dcd26682a2ac4e97235572f30d53",
+            "predict_seconds": 1.3132158000953496
+          }
+        }
+      }
+    ]
+  },
+  "decision": "Passes fixed development gates; opt-in candidate only. Improved and controlled remain available unchanged.",
+  "limitations": [
+    "Two reused development games; no independent generalisation or significance claim.",
+    "39 of 301 phases under two seconds matched: 87% remain unmatched at IoU .5.",
+    "Additional 9 unmatched predictions at IoU .5; evaluate this tradeoff on fresh matches.",
+    "Synthetic observation deletion is not real competition tracking.",
+    "Prediction timings overlapped other local checks; do not infer a reliable speed improvement or regression.",
+    "The generated competition CSV is byte-identical to improved; additional benefit is observed only on external development games."
+  ],
+  "output_validation": {
+    "official_validation_passed": true,
+    "rows": 199319,
+    "deterministic": true,
+    "improved_baseline_unchanged": true,
+    "status": "experimental",
+    "sha256": "61270dfbd362eb07c89717dcb9e14fcadd6533f3de793b6d3e9e4d92d34e7191",
+    "competition_csv_identical_to_improved": true,
+    "competition_ground_truth_scored": false
+  }
+}

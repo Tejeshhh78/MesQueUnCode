@@ -58,7 +58,7 @@ def read_metadata(path):
             "pitch": pitch, "date": general.get("KickoffTime")}
 
 
-def iter_frames(path, metadata, *, ball_only):
+def iter_frames(path, metadata, *, ball_only, include_person=False):
     """Stream frames, validating source identity and excluding referee tracks."""
     current = None
     frameset = None
@@ -84,7 +84,8 @@ def iter_frames(path, metadata, *, ball_only):
             if key in seen_sets:
                 raise ValueError("Duplicate DFL object frameset")
             seen_sets.add(key)
-            current = (period, team) if (team == "BALL") == ball_only and team != "referee" else None
+            identity = (period, team, element.get("PersonId")) if include_person else (period, team)
+            current = identity if (team == "BALL") == ball_only and team != "referee" else None
             frameset = element
             previous_frame = None
         if event == "end" and element.tag == "Frame":
@@ -120,7 +121,7 @@ def reference_label(attributes):
     return "X"
 
 
-def convert_match(metadata_path, positions_path):
+def convert_match(metadata_path, positions_path, *, position_motion=False):
     """Return geometry-only features and a separate native provider reference.
 
     Period boundaries use FrameSet GameSection and frame numbers, never labels.
@@ -166,7 +167,9 @@ def convert_match(metadata_path, positions_path):
     speed_count = np.zeros(n, dtype=np.int16)
     fast_count = np.zeros(n, dtype=np.int16)
     nearest = np.full((n, 2), np.inf)
-    for (period, team_id), row in iter_frames(positions_path, metadata, ball_only=False):
+    trajectories = {}
+    for identity, row in iter_frames(positions_path, metadata, ball_only=False, include_person=True):
+        period, team_id, person = identity
         first, last, start, origin = bounds[period]
         frame = int(row["N"])
         # Tracking can include pre/post-period player samples; keep the ball grid.
@@ -178,6 +181,13 @@ def convert_match(metadata_path, positions_path):
         x, y, speed = number(row, "X"), number(row, "Y"), number(row, "S") / 3.6
         if not (np.isfinite(x) and np.isfinite(y)):
             continue
+        if position_motion:
+            if not person:
+                raise ValueError("Position-based speeds require stable player IDs")
+            key = (team_id, person)
+            if key not in trajectories:
+                trajectories[key] = np.full((n, 2), np.nan, dtype=np.float32)
+            trajectories[key][index] = (x, y)
         features["player_count"][index] += 1
         if np.isfinite(speed) and 0 <= speed <= 15:
             speed_sum[index] += speed
@@ -192,15 +202,28 @@ def convert_match(metadata_path, positions_path):
     valid = speed_count > 0
     features["mean_speed"][valid] = speed_sum[valid] / speed_count[valid]
     features["fast_fraction"][valid] = fast_count[valid] / speed_count[valid]
+    if position_motion:
+        from solution.code.possession.data import Features
+        from solution.code.possession.motion import apply_position_motion
+        if not trajectories:
+            raise ValueError("No player positions available for position-based motion")
+        keys = list(trajectories)
+        players = np.stack([trajectories[key] for key in keys], axis=1)
+        team = np.array([metadata["team_ids"].index(key[0]) for key in keys])
+        converted = Features(**features, teams=metadata["teams"])
+        periods = [(b["period"], b["start"], b["stop"] - 1) for b in blocks]
+        apply_position_motion(converted, players, team, metadata["pitch"], 25, periods)
+        for key in ("mean_speed", "fast_fraction", "position_player_speed"):
+            features[key] = getattr(converted, key)
     return metadata, features, labels, blocks
 
 
-def import_dataset(source_dir, output_dir, development, final_test):
+def import_dataset(source_dir, output_dir, development, final_test, *, position_motion=False):
     """Write a locked, whole-match split and separate feature/reference files."""
     development, final_test = list(development), list(final_test)
     chosen = development + final_test
-    if not development or not final_test or len(chosen) != len(set(chosen)):
-        raise ValueError("Use disjoint, nonempty development and final-test match lists")
+    if not development or len(chosen) != len(set(chosen)):
+        raise ValueError("Use disjoint match lists and nonempty development matches")
     if any(match not in MATCHES for match in chosen):
         raise ValueError("Unknown public IDSSE match")
     source_dir, output_dir = Path(source_dir), Path(output_dir)
@@ -219,7 +242,7 @@ def import_dataset(source_dir, output_dir, development, final_test):
         suffix = f"DFL-COM-{competition}_DFL-MAT-{match}.xml"
         info = source_dir / f"DFL_02_01_matchinformation_{suffix}"
         positions = source_dir / f"DFL_04_03_positions_raw_observed_{suffix}"
-        metadata, features, labels, blocks = convert_match(info, positions)
+        metadata, features, labels, blocks = convert_match(info, positions, position_motion=position_motion)
         npz_path, label_path = output_dir / f"{match}.npz", output_dir / f"{match}_labels.csv"
         if npz_path.exists() or label_path.exists():
             raise FileExistsError("Refusing to overwrite converted match files")
@@ -234,7 +257,8 @@ def import_dataset(source_dir, output_dir, development, final_test):
             "evidence_type": "reference", "fps": 25, "n_frames": len(labels),
             "pitch_m": list(metadata["pitch"]), "teams": list(metadata["teams"]),
             "units": {"positions": "normalised_pitch", "distances": "metres", "speeds": "metres_per_second"},
-            "blocks": blocks, "inputs": {"format": "features_npz", "path": npz_path.name},
+            "blocks": blocks, "inputs": {"format": "features_npz", "path": npz_path.name,
+                                         "motion_feature": "position-v1" if position_motion else "provider-legacy"},
             "labels": {"path": label_path.name},
             "provenance": {
                 "source": SOURCE, "license": "CC BY 4.0: https://creativecommons.org/licenses/by/4.0/",
@@ -246,7 +270,7 @@ def import_dataset(source_dir, output_dir, development, final_test):
                 "competition_match_excluded": True, "semantics_compatible": True,
                 "blocks_origin": "period_metadata", "input_origin": "observed",
                 "target_labels_used_in_inputs": False, "label_origin": "corrected_tracking_derivation",
-                "adaptation": "Native 25 Hz; concatenate FrameSet halves, no halftime frames. Metres centred on pitch -> normalized x/L+.5,y/W+.5. S km/h -> m/s. Ignore ball height and all reference fields for features; no tactical tags.",
+                "adaptation": "Native 25 Hz; concatenate FrameSet halves, no halftime frames. Metres centred on pitch -> normalized x/L+.5,y/W+.5. S km/h -> m/s. Ignore ball height and all reference fields for features; no tactical tags. " + ("Collective and optional nearest-player motion use motion.apply_position_motion within periods." if position_motion else "Legacy provider motion."),
                 "limitations": "Provider control/stoppage reference, not re-annotated under challenge guidelines. Multicamera tracking domain differs from challenge ATD. Pilot split is not sufficient for promotion.",
                 "source_files": [{"url": f"https://ndownloader.figshare.com/files/{info_id}", "sha256": sha256(info)},
                                  {"url": f"https://ndownloader.figshare.com/files/{position_id}", "sha256": sha256(positions)}],
@@ -263,8 +287,11 @@ def main():
     parser.add_argument("--outdir", type=Path, required=True)
     parser.add_argument("--development", nargs="+", default=["J03WMX"])
     parser.add_argument("--final-test", nargs="+", default=["J03WN1"])
+    parser.add_argument("--development-only", action="store_true", help="Import development games only; do not open final games")
+    parser.add_argument("--position-motion", action="store_true", help="Build the final pipeline's collective and nearest-player position speeds")
     args = parser.parse_args()
-    path = import_dataset(args.source_dir, args.outdir, args.development, args.final_test)
+    path = import_dataset(args.source_dir, args.outdir, args.development,
+                          [] if args.development_only else args.final_test, position_motion=args.position_motion)
     print(f"IDSSE manifest written: {path}. Final-test scores were not evaluated.")
 
 

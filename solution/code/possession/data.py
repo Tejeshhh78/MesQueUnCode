@@ -25,6 +25,7 @@ class Features:
     fast_fraction: np.ndarray
     player_count: np.ndarray
     teams: tuple
+    position_player_speed: np.ndarray = None
 
 
 def read_metadata(path):
@@ -42,7 +43,7 @@ def read_metadata(path):
     return np.array([ids.index(p.get("teamId")) for p in slots]), names
 
 
-def _tracking_block(rows, first, slot_team, scale, output):
+def _tracking_block(rows, first, slot_team, scale, output, positions=None):
     """Process a bounded NumPy data block without persisting trajectories."""
     n_rows = len(rows)
     n_slots = len(slot_team)
@@ -61,6 +62,8 @@ def _tracking_block(rows, first, slot_team, scale, output):
         raise ValueError(f"ATD line {row}: infinite coordinate")
     players, points = table[:, :-1], table[:, -1]
     where = slice(first, first + n_rows)
+    if positions is not None:
+        positions[where] = players[..., :2]
     visible = np.isfinite(players[:, :, :2]).all(axis=2)
     output.ball[where] = points
     output.player_count[where] = visible.sum(axis=1)
@@ -96,7 +99,7 @@ def _tracking_block(rows, first, slot_team, scale, output):
         output.player_speed[first + indices, team] = speeds[indices, nearest[indices]]
 
 
-def read_tracking(meta_path, raw_path, n_frames, pitch, block_size=4096):
+def read_tracking(meta_path, raw_path, n_frames, pitch, block_size=4096, *, position_motion=False, fps=25, blocks=None):
     """Stream the input once; every frame must appear exactly once and in order.
 
     The block size affects memory usage and speed only, not the features or
@@ -109,6 +112,7 @@ def read_tracking(meta_path, raw_path, n_frames, pitch, block_size=4096):
                       np.full((n_frames, 2), np.nan), np.full(n_frames, np.nan),
                       np.full(n_frames, np.nan), np.zeros(n_frames, dtype=np.int16), names)
     scale = np.asarray(pitch, dtype=np.float64)
+    positions = np.full((n_frames, len(slot_team), 2), np.nan, dtype=np.float32) if position_motion else None
     rows = []
     count = 0
     with Path(raw_path).open(encoding="utf-8-sig") as handle:
@@ -131,12 +135,16 @@ def read_tracking(meta_path, raw_path, n_frames, pitch, block_size=4096):
             rows.append(players + "," + point)
             count += 1
             if len(rows) == block_size:
-                _tracking_block(rows, count - len(rows), slot_team, scale, output)
+                _tracking_block(rows, count - len(rows), slot_team, scale, output, positions)
                 rows.clear()
     if count != n_frames:
         raise ValueError(f"ATD contains {count} frames; expected {n_frames}")
     if rows:
-        _tracking_block(rows, count - len(rows), slot_team, scale, output)
+        _tracking_block(rows, count - len(rows), slot_team, scale, output, positions)
+    if position_motion:
+        from .motion import apply_position_motion
+        positions *= np.asarray(pitch, dtype=np.float32)
+        apply_position_motion(output, positions, slot_team, pitch, fps, blocks)
     return output
 
 

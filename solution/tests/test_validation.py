@@ -56,7 +56,7 @@ class IndependentValidationTests(unittest.TestCase):
             np.savez(path, **{key: np.asarray(value) for key, value in values.items()})
         else:
             path.write_text(json.dumps(values), encoding="utf-8")
-        self.match["inputs"] = {"format": file_format, "path": path.name}
+        self.match["inputs"] = {"format": file_format, "path": path.name, "motion_feature": "position-v1"}
         labels = self.root / "reference.csv"
         labels.write_text("frame,label\n" + "".join(f"{i},{label}\n" for i, label in enumerate(self.match["labels"]["values"])),
                           encoding="utf-8")
@@ -76,6 +76,14 @@ class IndependentValidationTests(unittest.TestCase):
         self.assertEqual(report["matches"][0]["metrics"]["controlled"]["n_graded"], 16)
         self.assertEqual(report["matches"][0]["metrics"]["controlled"]["n_gt_spells"], 2)
         self.assertTrue(all("confusion" not in metrics for metrics in report["matches"][0]["metrics"].values()))
+
+    def test_reference_provider_motion_is_rejected_before_prediction(self):
+        self.export_inputs()
+        self.match["inputs"].pop("motion_feature")
+        with mock.patch.object(validation, "predict") as predictor:
+            with self.assertRaisesRegex(ValueError, "legacy provider motion"):
+                self.run_manifest()
+        predictor.assert_not_called()
 
     def test_profiles_get_independent_input_copies_and_official_paired_metrics(self):
         seen, parsed = [], []

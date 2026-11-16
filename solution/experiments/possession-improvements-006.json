@@ -1,0 +1,20 @@
+{
+  "id": "possession-improvements-006",
+  "baseline_commit": "fcacb57ac25cb53344bb4ce6114954b4550b26bd",
+  "development": ["J03WMX", "J03WOH"],
+  "excluded_consumed_final": ["J03WN1", "J03WOY", "J03WPY", "J03WQQ"],
+  "reserved_unopened": ["J03WR9"],
+  "declared_before_results": true,
+  "variants": ["controlled", "position_motion", "contact", "gap_memory", "speed_guard", "improved"],
+  "changes": {
+    "position_motion": "Nearest-player speed from positions over +/-0.08 s, rejecting >15 m/s; same implementation on all sources. Collective speed remains the frozen calibration's +/-0.48 s feature.",
+    "contact": "Experiment 005 cue: complete original ball observations, +/-0.12 s velocity change 3..10 m/s, proximity envelope 1.2 m, bounded evidence. No transition discount.",
+    "gap_memory": "Carry only verified control memory across unobserved ball frames, exponentially decaying over the existing 2.5 s live / 0.35 s dead times. Do not infer a new owner from missing observations.",
+    "speed_guard": "When ball speed is unknown, cap instantaneous close-control weight at 0.5; unknown speed is not evidence for a slow ball.",
+    "improved": "All four changes together."
+  },
+  "evaluation": "Development only, full physical matches and official metrics, separate matched phases under 2 s, all variants once with fixed parameters. Baseline receives the same position-based collective movement as the final submission, provider nearest-player speed. Compare a separately captured original model as an exactness check.",
+  "stress": "Separate robustness check, not a selection set: seed 606, start a 25-frame missing-ball burst with probability 0.01 per frame. Clear ball and ball-relative distances/speeds together. Retain all other observations and references unchanged; no synthetic XY noise. Never use target labels to decide missingness. This is artificial observation deletion, not evidence of transfer to the competition tracker.",
+  "promotion": "No automatic change to the submitted default. Experimental candidate requires positive mean spellF1 and no per-game spellF1 loss; D recall and macroF1 losses no greater than 0.02 and 0.005. Even a passing development result requires fresh independent games for a generalisation claim.",
+  "stopping_rule": "No threshold sweeps or retuning after scores. Preserve failed variants and their results. Do not score competition labels or consumed final tests."
+}

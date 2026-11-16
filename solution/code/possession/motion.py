@@ -24,6 +24,46 @@ FAST_PLAYER_SPEED = 2.0       # m/s; "fast" share of players, as in the original
 CALIBRATION_PATH = Path(__file__).resolve().parent / "activity_calibration.json"
 
 
+def position_speeds(players_m, fps, half_window_s=0.08):
+    """Centred displacement speeds; missing or implausible observations stay unknown."""
+    players_m = np.asarray(players_m, dtype=np.float64)
+    half = max(1, int(round(half_window_s * fps)))
+    speed = np.full(players_m.shape[:2], np.nan)
+    if len(players_m) > 2 * half:
+        speed[half:-half] = np.linalg.norm(players_m[2 * half:] - players_m[:-2 * half], axis=2) * fps / (2 * half)
+    valid = np.isfinite(players_m).all(axis=2) & (speed <= MAX_PLAYER_SPEED)
+    return np.where(valid, speed, np.nan)
+
+
+def apply_position_motion(features, players_m, team, pitch, fps, blocks=None):
+    """Use identical movement features for ATD, IDSSE and Metrica observations.
+
+    Keep provider nearest-player speed for the controlled baseline. The optional
+    position_player_speed channel is consumed only by the position-motion variant.
+    Blocks are inclusive, as in predict(); differences never cross period boundaries.
+    """
+    n = len(features.ball)
+    features.mean_speed = np.full(n, np.nan)
+    features.fast_fraction = np.full(n, np.nan)
+    features.position_player_speed = np.full((n, 2), np.nan)
+    blocks = blocks if blocks is not None else [(1, 0, n - 1)]
+    team = np.asarray(team)
+    for _, first, last in blocks:
+        span = slice(first, last + 1)
+        players = np.asarray(players_m[span], dtype=np.float64)
+        features.mean_speed[span], features.fast_fraction[span] = robust_motion(players, fps)
+        speed = position_speeds(players, fps)
+        ball_m = features.ball[span, :2] * np.asarray(pitch)
+        distance = np.linalg.norm(players - ball_m[:, None], axis=2)
+        for side in (0, 1):
+            candidates = np.where((team == side)[None] & np.isfinite(distance), distance, np.inf)
+            nearest = np.argmin(candidates, axis=1)
+            rows = np.arange(len(players))
+            found = np.isfinite(candidates[rows, nearest])
+            features.position_player_speed[first + rows[found], side] = speed[rows[found], nearest[found]]
+    return features
+
+
 def robust_motion(players_m, fps):
     """(mean_speed, fast_fraction) per frame from player positions in metres, shape (n, slots, 2).
 

@@ -1,0 +1,23 @@
+{
+  "id": "short-control-007",
+  "declared_before_candidate_results": true,
+  "baseline": "improved",
+  "candidate": "short_control",
+  "development": ["J03WMX", "J03WOH"],
+  "excluded_consumed_final": ["J03WN1", "J03WOY", "J03WPY", "J03WQQ"],
+  "reserved_unopened": ["J03WR9"],
+  "basis": "Development diagnosis of improved: 301 reference possessions <2 s, 30 matched at IoU .5; 160 have the correct local H/A/D winner on a strict majority of frames. 26 are shorter than the existing .32 s minimum. These associations do not establish causation.",
+  "change": "Keep all improved emissions, D costs and .32 s minimum unchanged. Discount destination-frame H/A entry cost from 12 by 6 times bounded contact support, only if support >=.35, the destination emission beats both alternatives by >=.75 and nearest-team sign is consistent in a centred 3-frame window (agreement >=2/3). Contact support uses the existing complete-original-observation .12 s velocity change cue times exp(-(nearest_distance/1.2)^2), expanded by +/- .12 s for timestamp uncertainty. Missing/impossible observations provide no contact support. Exact Viterbi accepts frame-dependent transition costs. Costs stay 6..12; no reference input at inference.",
+  "variant_budget": 1,
+  "parameter_basis": "Bounded contact-specific hypothesis using the existing contact time/proximity scales. Fixed 50% maximum discount; .75 positive margin retained from historical experiment 004. No grid search.",
+  "promotion_gates": {
+    "minimum_additional_short_matches": 1,
+    "minimum_mean_spell_f1_gain": 0.005,
+    "maximum_per_match_spell_f1_loss": 0,
+    "maximum_per_match_macro_f1_loss": 0.005,
+    "maximum_per_match_dead_recall_loss": 0.02,
+    "maximum_pooled_extra_false_positives": 10
+  },
+  "stress": "Same separate seed-606 observation-deletion check as 006. Not a selection set or new real-match evidence.",
+  "stopping_rule": "Evaluate one candidate once; retain failed results without threshold changes. Keep improved and controlled reproducible. No competition scoring, no consumed final games, no promotion to default. Any clean development success still needs fresh physical matches."
+}

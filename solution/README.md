@@ -87,12 +87,36 @@ python -m unittest discover -s solution/tests -t .
 
 Tests needing the gated data skip themselves when it is absent.
 
+## Experimental improvements (separate branch)
+
+The opt-in `improved` profile combines position-derived nearest-player speed, a bounded ball-action
+cue, decaying possession memory through ball gaps and cautious handling of unknown ball speed.
+It improves development spellF1 from 0.5100 to 0.5321 on two IDSSE games; this is not an unseen-test
+result. `controlled` remains the default and reproduces the original submission.
+
+```bash
+python -m solution.code.possession --profile improved --team Mes_Que_Un_Code --output-dir solution/results/experiment-006-improved
+python -m solution.code.evaluate_improvements --output-dir solution/reports/improvements-006-new
+```
+
+See [IMPROVEMENTS.md](IMPROVEMENTS.md) for ablations, limitations and the fixed evaluation protocol.
+
+For short phases, the opt-in `short_control` profile adds contact-supported transition costs.
+On the same two reused development games it increases matched phases under two seconds from
+30 to 39 of 301 and mean spellF1 from 0.5321 to 0.5467, with nine extra unmatched predictions.
+This remains an experimental development result:
+
+```bash
+python -m solution.code.possession --profile short_control --team Mes_Que_Un_Code --output-dir solution/results/experiment-007-short-control
+python -m solution.code.evaluate_short_control --output-dir solution/reports/short-control-007-new
+```
+
 ## Final submission
 
 ```bash
 pip install -r requirements-solution.txt        # the pinned environment the file was built with
-python solution/run_solution.py --output solution/results/Mes_Que_Un_Code.csv
-python evaluation/validate_submission.py solution/results/Mes_Que_Un_Code.csv
+python -m solution.code.possession --team Mes_Que_Un_Code --output-dir solution/results/final
+python evaluation/validate_submission.py solution/results/final/Mes_Que_Un_Code.csv
 ```
 
 Upload exactly the file you just validated, together with the technical document

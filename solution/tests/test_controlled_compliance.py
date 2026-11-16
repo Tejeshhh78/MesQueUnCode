@@ -101,8 +101,8 @@ class ControlledOnRealDataTest(unittest.TestCase):
         from solution.code.possession.__main__ import run
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
             with contextlib.redirect_stdout(io.StringIO()):
-                one = run(None, first, "MesQueUnCode")
-                two = run(None, second, "MesQueUnCode")
+                one = run(None, first, "MesQueUnCode", profile="controlled")
+                two = run(None, second, "MesQueUnCode", profile="controlled")
         self.assertEqual(one["submission_sha256"], two["submission_sha256"])
         self.assertEqual(one["rows"], 199319)
         self.assertFalse(one["ground_truth_used"])

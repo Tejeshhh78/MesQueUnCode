@@ -19,6 +19,7 @@ from . import __version__
 from .data import read_events, read_tracking
 from .model import PROFILES, predict, profile_config
 from .motion import CALIBRATION_PATH, robust_motion
+from .release import PROFILE as SELECTED_PROFILE, TEAM
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -53,7 +54,7 @@ def write_submission(path, labels):
         temporary.unlink(missing_ok=True)
 
 
-def run(data_dir, output_dir, team, *, profile="controlled", diagnostics=False, save_trace=False,
+def run(data_dir, output_dir, team, *, profile=SELECTED_PROFILE, diagnostics=False, save_trace=False,
         team_switch_cost=None):
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", team):
         raise ValueError("Team name: 1–80 letters/digits, hyphens or underscores")
@@ -73,22 +74,32 @@ def run(data_dir, output_dir, team, *, profile="controlled", diagnostics=False, 
         prior = json.loads(manifest_path.read_text(encoding="utf-8"))
         if prior.get("profile", "incumbent") != profile:
             raise ValueError("Output belongs to a different model profile; choose another output directory")
-        if prior.get("config") != config.to_dict():
+        prior_config = prior.get("config")
+        if isinstance(prior_config, dict):
+            # Older manifests predate opt-in flags. Missing disabled flags do
+            # not describe a different algorithm; missing enabled flags do.
+            prior_config = dict(prior_config)
+            for name, value in config.to_dict().items():
+                if value is False:
+                    prior_config.setdefault(name, False)
+        if prior_config != config.to_dict():
             raise ValueError("Output belongs to a different or undocumented configuration; choose another output directory")
     started = time.perf_counter()
     game = GAMES[GAME]
     paths = require(["atd_meta", "atd_raw", "smart_tagging"], data_dir=data_dir)
     fingerprints = {Path(p).name: sha256(p) for p in paths}
     print("Reading and validating tactical tracking locally ...", flush=True)
-    features = read_tracking(paths[0], paths[1], game["n_video_frames"], game["pitch"])
+    blocks = half_video_blocks(GAME)
+    features = read_tracking(paths[0], paths[1], game["n_video_frames"], game["pitch"],
+                             position_motion=profile != "controlled", fps=game["fps"], blocks=blocks)
     # Movement from positions over 1 s -- the same feature the frozen regimes were fitted on, on
     # external games (motion.py). Nothing is fitted on this match.
-    from solution.loaders import load_tracking
-    tracking = load_tracking(GAME, data_dir)
-    features.mean_speed, features.fast_fraction = robust_motion(tracking.players[..., :2], game["fps"])
+    if profile == "controlled":
+        from solution.loaders import load_tracking
+        tracking = load_tracking(GAME, data_dir)
+        features.mean_speed, features.fast_fraction = robust_motion(tracking.players[..., :2], game["fps"])
     events = read_events(paths[2], game["n_video_frames"], game["fps"])
     print("Computing evidence and temporal states ...", flush=True)
-    blocks = half_video_blocks(GAME)
     trace = {} if diagnostics else None
     labels, model_report = predict(features, events, blocks, game["pitch"], game["fps"], config,
                                    profile=profile, trace=trace)
@@ -102,10 +113,11 @@ def run(data_dir, output_dir, team, *, profile="controlled", diagnostics=False, 
     runs = pm.valid_runs(codes)
     spells = pm.possession_spells(codes, runs)
     source_paths = sorted(Path(__file__).resolve().parent.glob("*.py")) + [
-        ROOT / "games.py", SOLUTION_ROOT / "requirements.txt", CALIBRATION_PATH]
+        ROOT / "games.py", SOLUTION_ROOT / "requirements.txt", CALIBRATION_PATH,
+        SOLUTION_ROOT / "loaders.py", SOLUTION_ROOT / "config.py", ROOT / "requirements-solution.txt"]
     manifest = {
         "version": __version__, "team": team, "game": GAME, "profile": profile,
-        "status": "selected",
+        "status": "selected" if profile == SELECTED_PROFILE else "baseline" if profile == "controlled" else "experimental",
         "environment": {"python": platform.python_version(), "numpy": np.__version__, "pandas": pd.__version__},
         "config": config.to_dict(), "inputs_sha256": fingerprints,
         "code_sha256": {str(p.relative_to(ROOT)).replace("\\", "/"): sha256(p) for p in source_paths},
@@ -117,7 +129,7 @@ def run(data_dir, output_dir, team, *, profile="controlled", diagnostics=False, 
     with manifest_path.open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(manifest, handle, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False)
         handle.write("\n")
-    document = SOLUTION_ROOT / "TECHNICAL_REPORT.md"
+    document = ROOT / "docs" / "Mes_Que_Un_Code.md" if profile == SELECTED_PROFILE else SOLUTION_ROOT / "IMPROVEMENTS.md"
     if document.is_file():
         report_text = document.read_text(encoding="utf-8")
         (output_dir / f"{team}.md").write_text(report_text, encoding="utf-8", newline="\n")
@@ -130,10 +142,10 @@ def run(data_dir, output_dir, team, *, profile="controlled", diagnostics=False, 
 def main():
     parser = argparse.ArgumentParser(description="Local possession inference without human training labels")
     parser.add_argument("--data-dir", help="Data bundle root; default: data/ or MTAH_DATA_DIR")
-    parser.add_argument("--output-dir", help="Default: solution/results/controlled")
-    parser.add_argument("--team", default="MesQueUnCode", help="Registered team name to use as the filename")
-    parser.add_argument("--profile", choices=PROFILES, default="controlled",
-                        help="Selected possession model")
+    parser.add_argument("--output-dir", help="Default: solution/results/final")
+    parser.add_argument("--team", default=TEAM, help="Registered team name to use as the filename")
+    parser.add_argument("--profile", choices=PROFILES, default=SELECTED_PROFILE,
+                        help="Submission default: short_control; other profiles reproduce development comparisons")
     parser.add_argument("--team-switch-cost", type=float, choices=[12.0],
                         help="Fixed model configuration; recorded in the output manifest")
     parser.add_argument("--diagnostics", action="store_true", help="Write aggregate evidence diagnostics")
@@ -141,7 +153,7 @@ def main():
     args = parser.parse_args()
     if args.save_trace and not args.diagnostics:
         parser.error("--save-trace requires --diagnostics")
-    output = args.output_dir or str(SOLUTION_ROOT / "results" / "controlled")
+    output = args.output_dir or str(SOLUTION_ROOT / "results" / "final")
     try:
         run(args.data_dir, output, args.team, profile=args.profile,
             diagnostics=args.diagnostics, save_trace=args.save_trace, team_switch_cost=args.team_switch_cost)
